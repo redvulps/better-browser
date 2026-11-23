@@ -5,7 +5,7 @@ import { actions, browserId, tokenPattern, type Reply } from '../shared/protocol
 import { credential, defaultCredential, Pairings } from './credential.js';
 import { base, call, discover } from './bridge.js';
 
-const server = new McpServer({ name: 'better-browser', version: '0.3.2' });
+const server = new McpServer({ name: 'better-browser', version: '0.3.3' });
 const pairs = new Pairings(base.origin);
 let selection = pairs.selected();
 async function tool(run: () => Promise<Reply>) {

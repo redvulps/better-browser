@@ -1,6 +1,6 @@
-# AGY Better Browser
+# Better Browser
 
-O agy abre e controla abas em um grupo **Agy** por conversa no perfil pareado do Chrome ou Brave. A skill `/better-browser` e uma regra global direcionam pedidos de interação com o navegador ao MCP `better-browser`. O comando explícito `/browser` continua sendo despachado pelo próprio agy.
+O Better Browser conecta agentes como o Agy e o Codex CLI ao Chrome ou Brave por MCP. Cada conversa pode abrir e controlar seu próprio grupo de abas no perfil pareado. No Agy, a skill `/better-browser` e uma regra global direcionam pedidos de interação com o navegador ao MCP `better-browser`. O comando explícito `/browser` continua sendo despachado pelo próprio agy.
 
 ## Instalar a skill no Agy
 
@@ -40,6 +40,16 @@ Para manter o token fora da conversa, o cadastro por terminal continua disponív
 ```sh
 systemd-ask-password "Token Better Browser" | npm run --silent pair
 ```
+
+## Usar com o Codex CLI
+
+Na pasta do projeto, após `npm ci` e `npm run build`, execute o comando abaixo para registrar o servidor no Codex.
+
+```sh
+codex mcp add better-browser -- "$(node -p process.execPath)" "$PWD/dist/mcp.js"
+```
+
+Abra uma nova sessão do Codex, confira `better-browser` em `/mcp` e peça “Liste os navegadores disponíveis pelo Better Browser”. Com a mesma conta do sistema e a mesma ponte, a configuração padrão reutiliza o pareamento feito no Agy. No navegador, o grupo e o aviso de controle exibem o nome **Agy** também quando o cliente é o Codex.
 
 ## Computadores diferentes
 
