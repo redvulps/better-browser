@@ -1,6 +1,6 @@
 ---
 name: better-browser
-description: Lista e pareia navegadores anunciados pelo Better Browser. Abre e controla um grupo de abas Agy por conversa para navegar, clicar, preencher formulários, ler a interface ou verificar o resultado de uma interação, inclusive em linguagem natural.
+description: Lista e pareia navegadores anunciados pelo Better Browser. Abre e controla um grupo de abas BetterBrowser por conversa para navegar, clicar, preencher formulários, ler a interface ou verificar o resultado de uma interação, inclusive em linguagem natural.
 ---
 
 Quando o usuário digitar apenas /better-browser ou pedir os navegadores disponíveis, chame list_browsers sem argumentos. Mostre a lista numerada com nome, ID e indicação de token salvo. Aguarde a escolha. Se a lista estiver vazia, explique que a extensão precisa estar carregada e apontar para a mesma ponte. Uma ponte inacessível é um erro distinto. Não faça read ou status para descobrir navegadores.

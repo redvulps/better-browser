@@ -1,16 +1,16 @@
 <!doctype html>
-<html lang="pt-BR"><head><meta charset="utf-8"><title>Better Browser</title><link rel="stylesheet" href="popup.css"></head>
+<html lang="en"><head><meta charset="utf-8"><title>Better Browser</title><link rel="stylesheet" href="popup.css"></head>
 <body><main>
-<header><h1>Better Browser</h1><output id="status" aria-live="polite">Carregando</output></header>
-<label for="nickname">Nome na lista do agente</label>
+<header><h1>Better Browser</h1><output id="status" aria-live="polite" data-i18n="loading"></output></header>
+<label for="nickname" data-i18n="browserName"></label>
 <input id="nickname" maxlength="48" spellcheck="false"><small id="browser-id"></small>
-<label for="endpoint">Endereço da ponte</label>
-<input id="endpoint" type="url" placeholder="wss://agente.exemplo/browser" spellcheck="false">
-<div class="actions"><button id="save">Salvar</button><button id="pause">Pausar</button></div>
-<details><summary>Token de acesso</summary>
-<div class="actions"><button id="reveal">Mostrar token</button><button id="rotate">Renovar token</button></div>
-<input id="token" aria-label="Token da extensão" readonly hidden>
+<label for="endpoint" data-i18n="bridgeAddress"></label>
+<input id="endpoint" type="url" placeholder="wss://bridge.example.net/browser" spellcheck="false">
+<div class="actions"><button id="save" data-i18n="save"></button><button id="pause" data-i18n="pause"></button></div>
+<details><summary data-i18n="accessToken"></summary>
+<div class="actions"><button id="reveal" data-i18n="showToken"></button><button id="rotate" data-i18n="rotateToken"></button></div>
+<input id="token" readonly hidden>
 </details>
-<details><summary>Histórico</summary><ol id="history"></ol></details>
+<details><summary data-i18n="history"></summary><ol id="history"></ol></details>
 <p id="error" role="alert"></p>
 </main><script type="module" src="popup.js"></script></body></html>

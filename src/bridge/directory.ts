@@ -56,7 +56,7 @@ export class Directory {
     if (this.peers.get(id) !== peer || peer.socket.readyState !== peer.socket.OPEN) {
       return { ok: false, text: 'Navegador desconectado.' };
     }
-    if (sessionId && !peer.groups) return { ok: false, text: 'Recarregue a extensão Better Browser 0.3 ou superior para habilitar o grupo Agy.' };
+    if (sessionId && !peer.groups) return { ok: false, text: 'Recarregue a extensão Better Browser 0.3 ou superior para habilitar o grupo BetterBrowser.' };
     if (command) return peer.commands.run(command, signature, sessionId);
     return { ok: true, text: 'Token verificado para o navegador ' + id + '.' };
   }

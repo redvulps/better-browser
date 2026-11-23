@@ -5,7 +5,7 @@ import { actions, browserId, tokenPattern, type Reply } from '../shared/protocol
 import { credential, defaultCredential, Pairings } from './credential.js';
 import { base, call, discover } from './bridge.js';
 
-const server = new McpServer({ name: 'better-browser', version: '0.3.3' });
+const server = new McpServer({ name: 'better-browser', version: '0.4.0' });
 const pairs = new Pairings(base.origin);
 let selection = pairs.selected();
 async function tool(run: () => Promise<Reply>) {
@@ -34,7 +34,7 @@ server.registerTool('pair_browser', {
   return result;
 }));
 server.registerTool('browser', {
-  description: 'Operate this conversation’s Agy tab group in the paired browser. Start with open or navigate and a URL. Pass the returned sessionId on every subsequent call in this conversation. open adds a tab, tabs lists up to 20 tabs starting at offset (default 0), select and close take a tabId. read, click, fill and navigate use the selected tab. No manual sharing is required.',
+  description: 'Operate this conversation’s BetterBrowser tab group in the paired browser. Start with open or navigate and a URL. Pass the returned sessionId on every subsequent call in this conversation. open adds a tab, tabs lists up to 20 tabs starting at offset (default 0), select and close take a tabId. read, click, fill and navigate use the selected tab. No manual sharing is required.',
   inputSchema: { browserId: z.optional(browserId), sessionId: z.optional(z.uuid()), command: actions }
 }, ({ browserId: explicit, sessionId, command }) => tool(async () => {
   let id = explicit || selection;
@@ -43,7 +43,7 @@ server.registerTool('browser', {
     if (peers.length > 1) return { ok: false, text: 'Escolha um navegador da lista e informe browserId.' };
     id = peers[0]?.id;
   }
-  if (!id) return { ok: false, text: 'Nenhum navegador anunciado para abrir o grupo Agy. Confira a ponte e a extensão.' };
+  if (!id) return { ok: false, text: 'Nenhum navegador anunciado para abrir o grupo BetterBrowser. Confira a ponte e a extensão.' };
   const token = pairs.stored(id) || credential();
   if (!sessionId && !['open', 'navigate', 'status', 'tabs'].includes(command.action)) {
     return { ok: false, text: 'Use o sessionId desta conversa ou abra a primeira aba com open e uma URL.' };

@@ -50,7 +50,7 @@ export async function call(path: string, token: string, command?: Action | Sessi
     body: command ? JSON.stringify(command) : undefined
   });
   if (command && 'sessionId' in command && response.status === 404) {
-    throw new Error('Reinicie a ponte Better Browser com a versão 0.3 ou superior para usar os grupos Agy.');
+    throw new Error('Reinicie a ponte Better Browser com a versão 0.3 ou superior para usar os grupos BetterBrowser.');
   }
   return reply.parse(await response.json());
 }
