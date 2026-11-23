@@ -1,32 +1,34 @@
 # Better Browser
 
-O Better Browser conecta o Chrome ou Brave a qualquer agente que consiga iniciar um servidor MCP via `stdio` e chamar suas ferramentas. Cada conversa pode abrir e controlar seu próprio grupo de abas no perfil pareado. A skill é opcional e orienta o agente sobre o pareamento e o uso das abas.
+Better Browser lets an AI agent work in your Chrome or Brave profile. Each conversation gets its own tab group and can use the accounts you’re already signed in to. Any agent that can launch a Model Context Protocol (MCP) server over `stdio` and call its tools can use Better Browser. The optional skill teaches the agent how to pair with a browser and manage its tabs.
 
-## Baixar a extensão
+## Download the extension
 
-O pacote assinado da versão mais recente está disponível para download. [Baixar better-browser.crx](https://github.com/redvulps/better-browser/releases/latest/download/better-browser.crx)
+[Download the latest signed extension (better-browser.crx)](https://github.com/redvulps/better-browser/releases/latest/download/better-browser.crx)
 
-No Chrome para Linux, você pode instalar um CRX distribuído fora da loja. No Windows e no macOS, a instalação comum de extensões empacotadas passa pela Chrome Web Store. Para carregar a extensão em modo de desenvolvedor, siga as instruções do projeto. [Distribuição no Chrome](https://developer.chrome.com/docs/extensions/how-to/distribute/host-on-linux) · [Compilar o projeto](#compilar-o-projeto) · [Conectar o navegador](#conectar-o-navegador)
+Chrome on Linux supports self-hosted CRX packages. On Windows and macOS, Chrome normally distributes packaged extensions through the Chrome Web Store. To run a developer build, load the unpacked extension using the instructions below. [Chrome distribution guide](https://developer.chrome.com/docs/extensions/how-to/distribute/host-on-linux) · [Build the project](#build-the-project) · [Connect your browser](#connect-your-browser)
 
-A cada tag `v<VERSÃO>` correspondente à versão de `extension/manifest.json`, o GitHub Actions compila a extensão, assina o CRX com o segredo `CRX_PRIVATE_KEY` e anexa o arquivo à release. Para gerar um build avulso, selecione **Run workflow** na branch `main` e baixe o artefato **better-browser-crx** na página da execução. [Build extension](https://github.com/redvulps/better-browser/actions/workflows/extension.yml)
+When you push a tag such as `v0.3.3` that matches the version in `extension/manifest.json`, GitHub Actions builds the extension, signs the CRX with the `CRX_PRIVATE_KEY` repository secret, and attaches it to the release. For a one-off build, select **Run workflow** on the `main` branch and download the **better-browser-crx** artifact from the run. [Build extension workflow](https://github.com/redvulps/better-browser/actions/workflows/extension.yml)
 
-## Instalando a skill
+<a id="instalando-a-skill"></a>
 
-Para escolher os agentes interativamente, abra o terminal do sistema na pasta do seu projeto e execute o comando abaixo.
+## Installing the skill
+
+To choose which agents get the skill, open a terminal in your project directory and run the installer.
 
 ```sh
 npx skills add redvulps/better-browser --skill better-browser
 ```
 
-1. Na seleção de agentes, marque os que você usa nessa máquina, como **Antigravity CLI (Agy)**, **Codex**, **Claude Code** ou **Cursor**. Os agentes do grupo **Universal** já estão incluídos. Se o instalador detectar apenas um agente, pode selecioná-lo automaticamente.
-2. Em **Installation scope**, escolha **Project** para usar a skill só no projeto atual ou **Global** para usá-la em todos os seus projetos.
-3. Confirme a instalação. Para conferir se `better-browser` aparece na lista, execute `npx skills ls` para o projeto ou `npx skills ls -g` para a instalação global.
+1. Select the agents you use on this machine, such as **Antigravity CLI (Agy)**, **Codex**, **Claude Code**, or **Cursor**. Agents in the **Universal** group are already included. If the installer detects only one agent, it may select it automatically.
+2. Under **Installation scope**, choose **Project** for the current project or **Global** to use the skill across all your projects.
+3. Confirm the installation. Check that `better-browser` appears in `npx skills ls` for a project installation or `npx skills ls -g` for a global installation.
 
-Para conectar o navegador, compile o projeto e siga o guia de configuração do servidor MCP para cada cliente que você usa. [Compilar o projeto](#compilar-o-projeto) · [Agy](#usar-com-o-agy) · [Codex CLI](#usar-com-o-codex-cli) · [Claude Code](#usar-com-o-claude-code) · [Cursor](#usar-com-o-cursor)
+Next, build the MCP server and register it with each client you use. [Build the project](#build-the-project) · [Agy](#agy) · [Codex CLI](#codex-cli) · [Claude Code](#claude-code) · [Cursor](#cursor)
 
-## Compilar o projeto
+## Build the project
 
-Com Node.js 22.13+ instalado, compile a extensão e o servidor MCP.
+With Node.js 22.13 or later installed, run the following commands to build the extension and the MCP server.
 
 ```sh
 git clone https://github.com/redvulps/better-browser.git
@@ -35,119 +37,123 @@ npm ci
 npm run build
 ```
 
-## Configurar um agente compatível com MCP
+## Configure an MCP client
 
-Na configuração de servidores MCP do seu agente, adicione um servidor chamado `better-browser` com transporte `stdio`. Use o executável do Node.js como comando e o caminho absoluto de `dist/mcp.js` como único argumento. Os comandos abaixo mostram esses caminhos quando executados na pasta do projeto.
+In your agent’s MCP settings, add a server named `better-browser` with the `stdio` transport. Set the command to the Node.js executable and pass the absolute path to `dist/mcp.js` as its only argument. Run these commands from the repository directory to get both paths.
 
 ```sh
 node -p process.execPath
 node -p "require('node:path').resolve('dist/mcp.js')"
 ```
 
-Depois de carregar o servidor, peça ao agente para listar os navegadores. A ferramenta `list_browsers` permite conferir a conexão antes do pareamento.
+Once the server loads, ask your agent to list available browsers. Its `list_browsers` tool can discover a browser before you pair it.
 
-## Usar com o Agy
+### Agy
 
-Na pasta do projeto compilado, registre o servidor MCP. A skill `/better-browser` e a regra global encaminham pedidos de interação com o navegador para esse servidor. O Agy atende o comando `/browser` com sua própria ferramenta.
+Register the server from the directory where you built the project. Use the `/better-browser` skill to route browser requests to this server. Agy’s built-in `/browser` command opens its own browser tool.
 
 ```sh
 agy mcp add better-browser "$(node -p process.execPath)" "$PWD/dist/mcp.js"
 ```
 
-Abra uma nova sessão do Agy e digite `/skills` para conferir se `better-browser` aparece na lista.
+Open a new Agy session and enter `/skills` to check that `better-browser` is listed.
 
-Para desenvolver a skill pelo código-fonte, a sequência no clone é `npm ci`, `npm run build` e `./scripts/install-agy.sh`. Esse fluxo já registra o MCP e vincula a skill e a regra global aos arquivos do clone.
+If you’re developing the skill, run `npm ci`, `npm run build`, and `./scripts/install-agy.sh` in your clone. The install script registers the MCP server and links the skill and the global browser routing rule to your working copy.
 
-## Usar com o Codex CLI
+### Codex CLI
 
-Na pasta do [projeto compilado](#compilar-o-projeto), registre o servidor MCP.
+From the directory where you built the project, register the server.
 
 ```sh
 codex mcp add better-browser -- "$(node -p process.execPath)" "$PWD/dist/mcp.js"
 ```
 
-Abra uma nova sessão do Codex e confira `better-browser` em `/mcp`. Com a mesma conta do sistema e a mesma ponte, a configuração padrão reutiliza o pareamento entre clientes.
+Start a new Codex session and look for `better-browser` in `/mcp`. With the default settings, clients running under the same OS account and using the same bridge can reuse the pairing.
 
-## Usar com o Claude Code
+### Claude Code
 
-Na pasta do projeto compilado, registre o servidor para sua conta de usuário.
+From the directory where you built the project, register the server for your user account.
 
 ```sh
 claude mcp add --scope user --transport stdio better-browser -- "$(node -p process.execPath)" "$PWD/dist/mcp.js"
 ```
 
-Abra o Claude Code e use `/mcp` para verificar se `better-browser` aparece como conectado. [Guia de MCP do Claude Code](https://code.claude.com/docs/en/mcp)
+Open Claude Code and enter `/mcp` to check that `better-browser` is connected. [Claude Code MCP guide](https://code.claude.com/docs/en/mcp)
 
-## Usar com o Cursor
+### Cursor
 
-Em `~/.cursor/mcp.json`, adicione `better-browser` à seção `mcpServers`. Substitua os dois caminhos do exemplo pelos valores obtidos na [configuração do servidor](#configurar-um-agente-compatível-com-mcp).
+Add `better-browser` to `mcpServers` in `~/.cursor/mcp.json`. Replace the example paths with the absolute paths to Node.js and the built server on your machine. [Find your paths](#configure-an-mcp-client)
 
 ```json
 {
   "mcpServers": {
     "better-browser": {
-      "command": "/caminho/para/node",
-      "args": ["/caminho/para/better-browser/dist/mcp.js"]
+      "command": "/path/to/node",
+      "args": ["/path/to/better-browser/dist/mcp.js"]
     }
   }
 }
 ```
 
-Abra o chat em modo Agent e peça “Liste os navegadores disponíveis pelo Better Browser”. [Guia de MCP do Cursor](https://cursor.com/docs/mcp)
+Open a chat in Agent mode and ask “List the browsers available through Better Browser.” [Cursor MCP guide](https://cursor.com/docs/mcp)
 
-## Conectar o navegador
+## Connect your browser
 
-No navegador que será controlado, abra a página de extensões, habilite o modo de desenvolvedor e carregue a pasta **dist/extension** como extensão descompactada. Para um navegador em outro computador, copie essa pasta para ele. O build contém os arquivos necessários para executar a extensão.
+For an unpacked build, open `chrome://extensions` or `brave://extensions` in the profile you want to use. Enable **Developer mode**, click **Load unpacked**, and select `dist/extension`. If the browser runs on another computer, copy that directory there first.
 
-1. Abra a extensão. Se quiser, atribua um nome ao navegador e salve. O painel mostra o ID que também aparecerá na conversa.
-2. Peça ao agente “Liste os navegadores disponíveis pelo Better Browser”. No Agy, você também pode digitar `/better-browser`. A lista inclui navegadores ainda sem pareamento. No endereço padrão, o MCP inicia a ponte em loopback quando necessário. Ao iniciar pela primeira vez, a extensão pode levar alguns segundos para aparecer.
-3. Escolha o navegador. No primeiro pareamento, abra **Token de acesso → Mostrar token** na extensão e forneça o token ao cliente. O MCP verifica o token com o navegador escolhido e só então o salva em arquivo local com modo 0600. O token persiste para as próximas sessões e um token incorreto não substitui o anterior. O texto enviado no chat pode ficar no histórico do cliente.
-4. Peça ao agente para abrir um site. Ele usa a sessão de login desse perfil e abre as abas da conversa no mesmo grupo. A extensão exibe **Agy** no grupo e no aviso de controle para todos os clientes. **Pausar** suspende o controle e **Retomar** permite continuar.
+1. Open the extension. You can give the browser a name and click **Salvar** (Save). The popup displays the same browser ID you’ll see in the chat.
+2. Ask your agent to “List the browsers available through Better Browser.” In Agy, you can also enter `/better-browser`. At the default address, the MCP server starts a local bridge as needed. It may take a few seconds for the browser to appear on first use.
+3. Choose a browser. For first-time pairing, open **Token de acesso** (Access token) in the extension, click **Mostrar token** (Show token), and give the token to your client. The MCP server verifies it with the selected browser before saving it in a local file with mode `0600`. The pairing persists across sessions. A failed attempt preserves the previous credential. A token entered in chat may remain in the client’s conversation history.
+4. Ask the agent to open a site. It uses the signed-in browser profile and opens the conversation’s tabs in a group labeled **Agy** in every client. Click **Pausar** (Pause) to suspend control or **Retomar** (Resume) to continue.
 
-Para uma extensão previamente carregada da mesma pasta, use **Recarregar** no cartão em `chrome://extensions` ou `brave://extensions`. Isso preserva o token existente. Se o navegador solicitar as novas permissões de grupos e acesso aos sites HTTP/HTTPS, confirme para ativar a versão 0.3. Se o navegador estiver em outro PC, copie os arquivos novos de **dist/extension** sobre a mesma pasta antes de recarregar. Reinicie qualquer ponte antiga iniciada manualmente e abra uma nova sessão do agy para carregar as novas ferramentas do MCP.
+To update an unpacked installation, rebuild or copy the new files into the same `dist/extension` directory, then click **Reload** on the extension card. This keeps your existing token. When upgrading to version 0.3, approve the tab group and HTTP/HTTPS site permissions if prompted. Restart any older bridge you started manually, and open a new agent session to load the updated MCP tools.
 
-Para manter o token fora da conversa, o cadastro por terminal continua disponível no Linux:
+On Linux, you can also enter the token in a terminal to keep it out of chat history.
 
 ```sh
-systemd-ask-password "Token Better Browser" | npm run --silent pair
+systemd-ask-password "Better Browser token" | npm run --silent pair
 ```
 
-## Computadores diferentes
+## Run the browser and bridge on different computers
 
-A extensão inicia um WebSocket de saída para a máquina da ponte. O navegador valida o certificado TLS do endereço configurado. Em uma rede com vários PCs, use um nome DNS com certificado confiável. Exemplo para uma ponte chamada `agente.exemplo.net`:
+The extension opens an outbound WebSocket connection to the bridge and checks the TLS certificate for the configured address. Give the bridge a DNS name with a trusted certificate. For example, to use `agent.example.net`, start the bridge on its host and register its address with Agy on the agent’s machine.
 
 ```sh
 BETTER_BROWSER_HOST=0.0.0.0 BETTER_BROWSER_PORT=8717 \
-BETTER_BROWSER_CERT=/caminho/fullchain.pem BETTER_BROWSER_KEY=/caminho/privkey.pem \
+BETTER_BROWSER_CERT=/path/to/fullchain.pem BETTER_BROWSER_KEY=/path/to/privkey.pem \
 npm run bridge
-agy mcp add --env BETTER_BROWSER_URL=https://agente.exemplo.net:8717 better-browser \
+```
+
+```sh
+agy mcp add --env BETTER_BROWSER_URL=https://agent.example.net:8717 better-browser \
   "$(node -p process.execPath)" "$PWD/dist/mcp.js"
 ```
 
-No painel da extensão, use `wss://agente.exemplo.net:8717/browser`. O Node que executa o MCP também precisa confiar no certificado. Para uma CA privada, passe `--env NODE_EXTRA_CA_CERTS=/caminho/ca.pem` no comando `agy mcp add`. Também é possível manter a ponte no loopback e encaminhar o caminho `/browser` por um proxy HTTPS com suporte a WebSocket. Nessa configuração o MCP local usa sua URL padrão.
+Set the bridge address in the extension popup to `wss://agent.example.net:8717/browser`. The Node.js process running the MCP server must also trust the certificate. For a private certificate authority, include `--env NODE_EXTRA_CA_CERTS=/path/to/ca.pem` in the `agy mcp add` command. Alternatively, keep the bridge on loopback and forward `/browser` through an HTTPS reverse proxy with WebSocket support. An MCP server on the bridge host can then keep its default address.
 
-## Controle e histórico
+## Browser control and history
 
-A extensão mantém o token no armazenamento local e comprova sua posse por desafio HMAC mútuo com a ponte. O MCP autentica cada pedido na ponte com o mesmo token. A porta de depuração do navegador pode permanecer fechada. A ponte lista por ID as extensões online. A descoberta divulga somente o nome e o ID, inclusive quando o controle está pausado. Cada comando exige o token do navegador escolhido. A ponte valida a prova de posse enviada pela extensão e a extensão verifica a prova da ponte antes de executar a ação.
+The extension keeps its token in local storage. The MCP server authenticates requests to the bridge with that browser’s token. The browser and the bridge use a mutual HMAC challenge to verify possession of the token before commands run. Browser discovery exposes each connected browser’s name and ID, including while control is paused. You can keep the browser’s remote debugging port closed.
 
-**Pausar** bloqueia os comandos de todas as conversas até você clicar em **Retomar**. **Renovar token** revoga a credencial e o acesso aos grupos atuais. A extensão mantém as últimas 200 ações com horário, origem e resultado.
+**Pausar** (Pause) blocks commands from every conversation until you click **Retomar** (Resume). **Renovar token** (Rotate token) revokes the credential and access to current groups. The extension keeps the last 200 actions, including the time, origin, and outcome.
 
-Com a ponte conectada e pelo menos uma aba sob controle, aparece **Agy está controlando esse navegador** nas páginas HTTP e HTTPS em que a extensão tem acesso, inclusive nas abas pessoais. O aviso acompanha trocas de aba e navegações. Nas páginas internas e em outros endereços protegidos, o ícone da extensão mostra **AGY** e a frase aparece ao passar o ponteiro. Fixe o ícone na barra para vê-lo nessas páginas. Pausar, desconectar a ponte ou retirar a última aba do controle apaga o aviso. Uma aba do grupo mantida aberta após uma tarefa mantém o aviso enquanto o controle estiver habilitado.
+While the bridge is connected and at least one tab is under agent control, accessible HTTP and HTTPS pages display **Agy está controlando esse navegador** (“Agy is controlling this browser”). The notice follows you across tabs and page loads, including personal tabs. On protected pages, pin the extension to see the **AGY** badge and hover over it to read the notice. The notice stays visible while a controlled tab remains open, even after a task ends. Pausing, disconnecting the bridge, or removing the last controlled tab clears it.
 
-## Abas da sessão
+## Session tabs
 
-Ao abrir um site com `open` ou `navigate`, o MCP devolve o `sessionId` que a skill reutiliza na conversa. `open` adiciona outra aba ao grupo, `tabs` lista as abas da sessão, `select` troca a seleção e `close` fecha a aba indicada. `navigate` muda de endereço na aba selecionada, inclusive entre domínios. As abas abertas por links da sessão também podem entrar no grupo. O grupo fica aberto para consulta quando a conversa termina.
+The first `open` or `navigate` returns a `sessionId` that the skill reuses throughout the conversation. Use `open` to add a tab, `tabs` to list the group’s tabs, `select` to switch tabs, and `close` to close one. Use `navigate` to change the site in the selected tab, including across domains. Links that open new tabs can add those tabs to the session. The group stays open for you to inspect after the conversation ends.
 
-O agente lê texto e controles HTML do documento principal, clica por referência e preenche formulários. A extensão confere o ID da aba e o grupo antes de executar cada comando. Tirar uma aba do grupo remove o controle sobre ela. Abas pessoais adicionadas manualmente ao grupo continuam fora da lista do agente. A associação das abas sobrevive à suspensão do worker e à reconexão da ponte durante a execução do navegador. Ao reiniciar o navegador ou recarregar a extensão, a próxima tarefa pode abrir um novo grupo.
+The agent can read text and HTML controls in the main document, click a control by reference, and fill out forms. The extension checks the tab ID and group before each command. Moving a tab out of the group releases it from agent control. Personal tabs you drag into the group stay outside the agent’s session. The extension remembers which tabs belong to a session when its service worker goes idle or the bridge reconnects. Restarting the browser or reloading the extension can cause the next task to start a new group.
 
-Nas abas controladas, um ponteiro virtual mostra o alvo do agente antes de cada clique ou preenchimento. A ponta da seta marca o local da interação. Ela desliza até o próximo controle e permanece visível na última posição da aba, inclusive após recarregar ou seguir um link na mesma aba. Com a preferência de movimento reduzido, o ponteiro aparece diretamente no alvo.
+In controlled tabs, a virtual pointer moves to each target before the agent clicks or fills a field. The tip marks the interaction point. It stays at its last position across reloads and navigation in the same tab. If you prefer reduced motion, the pointer jumps directly to the target.
 
-O contrato entre as partes fica em `src/shared`, o servidor MCP em `src/agent`, a sessão autenticada em `src/bridge` e o código que age na aba em `src/extension`.
+The shared protocol lives in `src/shared`, the MCP server in `src/agent`, the authenticated bridge session in `src/bridge`, and the browser interaction code in `src/extension`.
 
-## Testes
+## Tests
 
-O teste de integração usa o cliente MCP oficial, uma ponte local e instalações descartáveis da extensão no Chromium. No Linux, instale Xvfb, disponibilize o Chromium de teste com `npx playwright-core install chromium` e execute:
+The integration tests use the official MCP client, a local bridge, and temporary Chromium profiles with the extension installed. On Linux, install Xvfb and run the following commands from the repository directory.
 
 ```sh
+npx playwright-core install chromium
 xvfb-run -a npm test
 ```
