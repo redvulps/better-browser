@@ -2,15 +2,29 @@
 
 O agy abre e controla abas em um grupo **Agy** por conversa no perfil pareado do Chrome ou Brave. A skill `/better-browser` e uma regra global direcionam pedidos de interação com o navegador ao MCP `better-browser`. O comando explícito `/browser` continua sendo despachado pelo próprio agy.
 
-## Preparação
+## Instalar a skill no Agy
 
-Na máquina do agente, com Node.js 22.13+ e o agy no PATH:
+Na máquina onde você usa o Agy, execute o comando abaixo em qualquer pasta. A opção `-g` deixa a skill disponível em todos os projetos do Antigravity CLI.
 
 ```sh
+npx skills add redvulps/agy-better-browser --skill better-browser -g -a antigravity-cli
+```
+
+Abra uma nova sessão do Agy e digite `/skills` para conferir se `better-browser` aparece na lista. Para usar `/better-browser`, o Agy também precisa do servidor MCP e da extensão no navegador.
+
+## Configurar o MCP e a extensão
+
+Com Node.js 22.13+ e o comando `agy` no PATH, compile o projeto e registre o servidor MCP com estes comandos.
+
+```sh
+git clone https://github.com/redvulps/agy-better-browser.git
+cd agy-better-browser
 npm ci
 npm run build
-./scripts/install-agy.sh
+agy mcp add better-browser "$(node -p process.execPath)" "$PWD/dist/mcp.js"
 ```
+
+Para desenvolver a skill pelo código-fonte, a sequência no clone é `npm ci`, `npm run build` e `./scripts/install-agy.sh`. Esse fluxo já registra o MCP e vincula a skill e a regra global aos arquivos do clone.
 
 No navegador que será controlado, abra a página de extensões, habilite o modo de desenvolvedor e carregue a pasta **dist/extension** como extensão descompactada. Para um navegador em outro computador, copie essa pasta para ele. O build contém os arquivos necessários para executar a extensão.
 
