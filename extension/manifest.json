@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "minimum_chrome_version": "116",
+  "name": "AGY Better Browser",
+  "version": "0.3.2",
+  "description": "Abra e controle as abas de cada sessão do agy no grupo Agy.",
+  "permissions": ["tabGroups", "webNavigation", "scripting", "storage", "alarms"],
+  "host_permissions": ["http://*/*", "https://*/*"],
+  "background": { "service_worker": "worker.js", "type": "module" },
+  "action": { "default_popup": "popup.html", "default_title": "Better Browser" }
+}

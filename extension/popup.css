@@ -1,0 +1,20 @@
+:root { color-scheme: dark; font: 14px "Inter", system-ui, sans-serif; background: #152022; color: #f2f7f4; }
+body { width: 350px; margin: 0; }
+main { padding: 18px; }
+header, .actions { display: flex; align-items: center; gap: 8px; }
+header { justify-content: space-between; margin-bottom: 18px; }
+h1 { font-size: 20px; margin: 0; }
+output { font-size: 12px; color: #a7e3cd; max-width: 48%; }
+label { display: block; margin-bottom: 5px; }
+input { width: 100%; box-sizing: border-box; margin: 3px 0 10px; padding: 8px; color: inherit; background: #202f32; border: 1px solid #6b8183; border-radius: 5px; }
+button { border: 1px solid #698185; color: inherit; background: #263a3c; border-radius: 5px; padding: 8px 10px; cursor: pointer; }
+button:disabled { opacity: .5; }
+#share { color: #122922; background: #98dfbf; }
+details { border-top: 1px solid #496064; margin-top: 14px; padding-top: 12px; }
+summary { cursor: pointer; }
+details .actions { margin: 10px 0; }
+ol { padding-left: 20px; max-height: 180px; overflow: auto; font-size: 12px; }
+li { margin-bottom: 6px; overflow-wrap: anywhere; }
+#error { color: #ffb5ae; margin: 8px 0 0; }
+
+#browser-id { display: block; color: #abc3c1; margin: 0 0 12px; }

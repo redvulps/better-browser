@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><title>Better Browser</title><link rel="stylesheet" href="popup.css"></head>
+<body><main>
+<header><h1>Better Browser</h1><output id="status" aria-live="polite">Carregando</output></header>
+<label for="nickname">Nome na lista do agente</label>
+<input id="nickname" maxlength="48" spellcheck="false"><small id="browser-id"></small>
+<label for="endpoint">Endereço da ponte</label>
+<input id="endpoint" type="url" placeholder="wss://agente.exemplo/browser" spellcheck="false">
+<div class="actions"><button id="save">Salvar</button><button id="pause">Pausar</button></div>
+<details><summary>Token de acesso</summary>
+<div class="actions"><button id="reveal">Mostrar token</button><button id="rotate">Renovar token</button></div>
+<input id="token" aria-label="Token da extensão" readonly hidden>
+</details>
+<details><summary>Histórico</summary><ol id="history"></ol></details>
+<p id="error" role="alert"></p>
+</main><script type="module" src="popup.js"></script></body></html>
