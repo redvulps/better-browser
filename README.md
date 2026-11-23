@@ -1,37 +1,114 @@
 # Better Browser
 
-O Better Browser conecta agentes como o Agy e o Codex CLI ao Chrome ou Brave por MCP. Cada conversa pode abrir e controlar seu próprio grupo de abas no perfil pareado. No Agy, a skill `/better-browser` e uma regra global direcionam pedidos de interação com o navegador ao MCP `better-browser`. O comando explícito `/browser` continua sendo despachado pelo próprio agy.
+O Better Browser conecta o Chrome ou Brave a qualquer agente que consiga iniciar um servidor MCP via `stdio` e chamar suas ferramentas. Cada conversa pode abrir e controlar seu próprio grupo de abas no perfil pareado. A skill é opcional e orienta o agente sobre o pareamento e o uso das abas.
+
+Escolha o guia do seu cliente. [Agy](#usar-com-o-agy) · [Codex CLI](#usar-com-o-codex-cli) · [Claude Code](#usar-com-o-claude-code) · [Cursor](#usar-com-o-cursor)
 
 ## Instalar a skill no Agy
 
 Na máquina onde você usa o Agy, execute o comando abaixo em qualquer pasta. A opção `-g` deixa a skill disponível em todos os projetos do Antigravity CLI.
 
 ```sh
-npx skills add redvulps/agy-better-browser --skill better-browser -g -a antigravity-cli
+npx skills add redvulps/better-browser --skill better-browser -g -a antigravity-cli
 ```
 
-Abra uma nova sessão do Agy e digite `/skills` para conferir se `better-browser` aparece na lista. Para usar `/better-browser`, o Agy também precisa do servidor MCP e da extensão no navegador.
+Abra uma nova sessão do Agy e digite `/skills` para conferir se `better-browser` aparece na lista.
 
-## Configurar o MCP e a extensão
+## Compilar o projeto
 
-Com Node.js 22.13+ e o comando `agy` no PATH, compile o projeto e registre o servidor MCP com estes comandos.
+Com Node.js 22.13+ instalado, compile a extensão e o servidor MCP.
 
 ```sh
-git clone https://github.com/redvulps/agy-better-browser.git
-cd agy-better-browser
+git clone https://github.com/redvulps/better-browser.git
+cd better-browser
 npm ci
 npm run build
+```
+
+## Configurar um agente compatível com MCP
+
+Na configuração de servidores MCP do seu agente, adicione um servidor chamado `better-browser` com transporte `stdio`. Use o executável do Node.js como comando e o caminho absoluto de `dist/mcp.js` como único argumento. Os comandos abaixo mostram esses caminhos quando executados na pasta do projeto.
+
+```sh
+node -p process.execPath
+node -p "require('node:path').resolve('dist/mcp.js')"
+```
+
+Depois de carregar o servidor, peça ao agente para listar os navegadores. A ferramenta `list_browsers` permite conferir a conexão antes do pareamento.
+
+## Usar com o Agy
+
+Na pasta do projeto compilado, registre o servidor MCP. A skill `/better-browser` e a regra global encaminham pedidos de interação com o navegador para esse servidor. O Agy atende o comando `/browser` com sua própria ferramenta.
+
+```sh
 agy mcp add better-browser "$(node -p process.execPath)" "$PWD/dist/mcp.js"
 ```
 
 Para desenvolver a skill pelo código-fonte, a sequência no clone é `npm ci`, `npm run build` e `./scripts/install-agy.sh`. Esse fluxo já registra o MCP e vincula a skill e a regra global aos arquivos do clone.
 
+## Usar com o Codex CLI
+
+Para instalar a skill no Codex, execute o comando abaixo em qualquer pasta.
+
+```sh
+npx skills add redvulps/better-browser --skill better-browser -g -a codex
+```
+
+Na pasta do [projeto compilado](#compilar-o-projeto), registre o servidor MCP.
+
+```sh
+codex mcp add better-browser -- "$(node -p process.execPath)" "$PWD/dist/mcp.js"
+```
+
+Abra uma nova sessão do Codex e confira `better-browser` em `/mcp`. Com a mesma conta do sistema e a mesma ponte, a configuração padrão reutiliza o pareamento entre clientes.
+
+## Usar com o Claude Code
+
+Na pasta do projeto compilado, registre o servidor para sua conta de usuário.
+
+```sh
+claude mcp add --scope user --transport stdio better-browser -- "$(node -p process.execPath)" "$PWD/dist/mcp.js"
+```
+
+Para instalar também a skill no Claude Code, execute o comando abaixo.
+
+```sh
+npx skills add redvulps/better-browser --skill better-browser -g -a claude-code
+```
+
+Abra o Claude Code e use `/mcp` para verificar se `better-browser` aparece como conectado. [Guia de MCP do Claude Code](https://code.claude.com/docs/en/mcp)
+
+## Usar com o Cursor
+
+Em `~/.cursor/mcp.json`, adicione `better-browser` à seção `mcpServers`. Substitua os dois caminhos do exemplo pelos valores obtidos na [configuração do servidor](#configurar-um-agente-compatível-com-mcp).
+
+```json
+{
+  "mcpServers": {
+    "better-browser": {
+      "command": "/caminho/para/node",
+      "args": ["/caminho/para/better-browser/dist/mcp.js"]
+    }
+  }
+}
+```
+
+Para instalar também a skill no Cursor, execute o comando abaixo.
+
+```sh
+npx skills add redvulps/better-browser --skill better-browser -g -a cursor
+```
+
+Abra o chat em modo Agent e peça “Liste os navegadores disponíveis pelo Better Browser”. [Guia de MCP do Cursor](https://cursor.com/docs/mcp)
+
+## Conectar o navegador
+
 No navegador que será controlado, abra a página de extensões, habilite o modo de desenvolvedor e carregue a pasta **dist/extension** como extensão descompactada. Para um navegador em outro computador, copie essa pasta para ele. O build contém os arquivos necessários para executar a extensão.
 
 1. Abra a extensão. Se quiser, atribua um nome ao navegador e salve. O painel mostra o ID que também aparecerá na conversa.
-2. Digite `/better-browser` sem argumentos. A skill lista as extensões anunciadas na ponte, inclusive navegadores ainda sem pareamento. No endereço padrão, o MCP inicia a ponte em loopback quando necessário. Ao iniciar pela primeira vez, a extensão pode levar alguns segundos para aparecer.
-3. Escolha o navegador e envie o respectivo token no chat do agy, disponível em **Token de acesso → Mostrar token**. O MCP verifica o token com o navegador escolhido e só então o salva em arquivo local com modo 0600. O token persiste para as próximas sessões e um token incorreto não substitui o anterior. O texto enviado no chat pode ficar no histórico do cliente.
-4. Peça ao agy para abrir um site. Ele cria a primeira aba em um grupo **Agy** e usa a sessão de login desse perfil. As próximas abas da conversa entram no mesmo grupo. **Pausar** suspende o controle e **Retomar** permite continuar.
+2. Peça ao agente “Liste os navegadores disponíveis pelo Better Browser”. No Agy, você também pode digitar `/better-browser`. A lista inclui navegadores ainda sem pareamento. No endereço padrão, o MCP inicia a ponte em loopback quando necessário. Ao iniciar pela primeira vez, a extensão pode levar alguns segundos para aparecer.
+3. Escolha o navegador. No primeiro pareamento, abra **Token de acesso → Mostrar token** na extensão e forneça o token ao cliente. O MCP verifica o token com o navegador escolhido e só então o salva em arquivo local com modo 0600. O token persiste para as próximas sessões e um token incorreto não substitui o anterior. O texto enviado no chat pode ficar no histórico do cliente.
+4. Peça ao agente para abrir um site. Ele usa a sessão de login desse perfil e abre as abas da conversa no mesmo grupo. A extensão exibe **Agy** no grupo e no aviso de controle para todos os clientes. **Pausar** suspende o controle e **Retomar** permite continuar.
 
 Para uma extensão previamente carregada da mesma pasta, use **Recarregar** no cartão em `chrome://extensions` ou `brave://extensions`. Isso preserva o token existente. Se o navegador solicitar as novas permissões de grupos e acesso aos sites HTTP/HTTPS, confirme para ativar a versão 0.3. Se o navegador estiver em outro PC, copie os arquivos novos de **dist/extension** sobre a mesma pasta antes de recarregar. Reinicie qualquer ponte antiga iniciada manualmente e abra uma nova sessão do agy para carregar as novas ferramentas do MCP.
 
@@ -40,16 +117,6 @@ Para manter o token fora da conversa, o cadastro por terminal continua disponív
 ```sh
 systemd-ask-password "Token Better Browser" | npm run --silent pair
 ```
-
-## Usar com o Codex CLI
-
-Na pasta do projeto, após `npm ci` e `npm run build`, execute o comando abaixo para registrar o servidor no Codex.
-
-```sh
-codex mcp add better-browser -- "$(node -p process.execPath)" "$PWD/dist/mcp.js"
-```
-
-Abra uma nova sessão do Codex, confira `better-browser` em `/mcp` e peça “Liste os navegadores disponíveis pelo Better Browser”. Com a mesma conta do sistema e a mesma ponte, a configuração padrão reutiliza o pareamento feito no Agy. No navegador, o grupo e o aviso de controle exibem o nome **Agy** também quando o cliente é o Codex.
 
 ## Computadores diferentes
 
