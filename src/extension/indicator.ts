@@ -1,6 +1,6 @@
 import type { PointerWorld } from './pointer.js';
 
-const noticeText = 'Agy está controlando esse navegador';
+const noticeText = chrome.i18n.getMessage('controlNotice');
 const ports = new Set<chrome.runtime.Port>();
 let visible: boolean | undefined;
 
@@ -14,6 +14,7 @@ function attachIndicator() {
   const port = chrome.runtime.connect({ name: 'agy-control-indicator' });
   world.agyIndicatorPort = port;
   const host = document.createElement('div');
+  host.lang = chrome.i18n.getMessage('languageTag');
   host.setAttribute('role', 'status');
   host.setAttribute('data-agy-control-notice', '');
   const root = host.attachShadow({ mode: 'closed' });
@@ -110,7 +111,7 @@ export async function updateIndicator(connected: boolean) {
   }
   await Promise.all([
     chrome.action.setBadgeBackgroundColor({ color: '#17505C' }),
-    chrome.action.setBadgeText({ text: active ? 'AGY' : '' }),
+    chrome.action.setBadgeText({ text: active ? 'BB' : '' }),
     chrome.action.setTitle({ title: active ? noticeText : 'Better Browser' })
   ]);
   if (active) {

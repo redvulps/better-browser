@@ -101,10 +101,12 @@ Open a chat in Agent mode and ask “List the browsers available through Better 
 
 For an unpacked build, open `chrome://extensions` or `brave://extensions` in the profile you want to use. Enable **Developer mode**, click **Load unpacked**, and select `dist/extension`. If the browser runs on another computer, copy that directory there first.
 
-1. Open the extension. You can give the browser a name and click **Salvar** (Save). The popup displays the same browser ID you’ll see in the chat.
+The extension follows your browser’s interface language. It supports English and Brazilian Portuguese and uses English for other languages.
+
+1. Open the extension. You can give the browser a name and click **Save**. The popup displays the same browser ID you’ll see in the chat.
 2. Ask your agent to “List the browsers available through Better Browser.” In Agy, you can also enter `/better-browser`. At the default address, the MCP server starts a local bridge as needed. It may take a few seconds for the browser to appear on first use.
-3. Choose a browser. For first-time pairing, open **Token de acesso** (Access token) in the extension, click **Mostrar token** (Show token), and give the token to your client. The MCP server verifies it with the selected browser before saving it in a local file with mode `0600`. The pairing persists across sessions. A failed attempt preserves the previous credential. A token entered in chat may remain in the client’s conversation history.
-4. Ask the agent to open a site. It uses the signed-in browser profile and opens the conversation’s tabs in a group labeled **Agy** in every client. Click **Pausar** (Pause) to suspend control or **Retomar** (Resume) to continue.
+3. Choose a browser. For first-time pairing, open **Access token** in the extension, click **Show token**, and give the token to your client. The MCP server verifies it with the selected browser before saving it in a local file with mode `0600`. The pairing persists across sessions. A failed attempt preserves the previous credential. A token entered in chat may remain in the client’s conversation history.
+4. Ask the agent to open a site. It uses the signed-in browser profile and opens the conversation’s tabs in a group labeled **BetterBrowser** in every client. Click **Pause** to suspend control or **Resume** to continue.
 
 To update an unpacked installation, rebuild or copy the new files into the same `dist/extension` directory, then click **Reload** on the extension card. This keeps your existing token. When upgrading to version 0.3, approve the tab group and HTTP/HTTPS site permissions if prompted. Restart any older bridge you started manually, and open a new agent session to load the updated MCP tools.
 
@@ -135,9 +137,9 @@ Set the bridge address in the extension popup to `wss://agent.example.net:8717/b
 
 The extension keeps its token in local storage. The MCP server authenticates requests to the bridge with that browser’s token. The browser and the bridge use a mutual HMAC challenge to verify possession of the token before commands run. Browser discovery exposes each connected browser’s name and ID, including while control is paused. You can keep the browser’s remote debugging port closed.
 
-**Pausar** (Pause) blocks commands from every conversation until you click **Retomar** (Resume). **Renovar token** (Rotate token) revokes the credential and access to current groups. The extension keeps the last 200 actions, including the time, origin, and outcome.
+**Pause** blocks commands from every conversation until you click **Resume**. **Rotate token** revokes the credential and access to current groups. The extension keeps the last 200 actions, including the time, origin, and outcome.
 
-While the bridge is connected and at least one tab is under agent control, accessible HTTP and HTTPS pages display **Agy está controlando esse navegador** (“Agy is controlling this browser”). The notice follows you across tabs and page loads, including personal tabs. On protected pages, pin the extension to see the **AGY** badge and hover over it to read the notice. The notice stays visible while a controlled tab remains open, even after a task ends. Pausing, disconnecting the bridge, or removing the last controlled tab clears it.
+While the bridge is connected and at least one tab is under agent control, accessible HTTP and HTTPS pages display **BetterBrowser is controlling this browser** in English or **BetterBrowser está controlando este navegador** in Brazilian Portuguese. The notice follows you across tabs and page loads, including personal tabs. On protected pages, pin the extension to see the **BB** badge and hover over it to read the notice. The notice stays visible while a controlled tab remains open, even after a task ends. Pausing, disconnecting the bridge, or removing the last controlled tab clears it.
 
 ## Session tabs
 

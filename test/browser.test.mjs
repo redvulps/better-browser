@@ -10,7 +10,11 @@ import { chromium } from 'playwright-core';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 
-test('MCP abre e controla grupos Agy isolados por sessão no perfil pareado', { timeout: 50000 }, async t => {
+for (const locale of ['en', 'pt-BR']) {
+  test(`MCP controls localized BetterBrowser groups (${locale})`, { timeout: 50000 }, t => exerciseBrowser(t, locale));
+}
+
+async function exerciseBrowser(t, locale) {
   const tmp = await mkdtemp(join(tmpdir(), 'better-browser-test-'));
   t.after(() => rm(tmp, { recursive: true, force: true }));
   const ext = join(tmp, 'extension');
@@ -34,14 +38,27 @@ self.addEventListener('securitypolicyviolation', e => cspViolations.push([e.effe
   const defaultEndpoint = 'ws://127.0.0.1:8717/browser';
   assert.ok(workerSource.includes(defaultEndpoint));
   await writeFile(workerFile, observeCsp + workerSource.replace(defaultEndpoint, origin.replace('http:', 'ws:') + '/browser'));
-  const browser = await chromium.launchPersistentContext(join(tmp, 'profile'), {
-    executablePath: chromium.executablePath(), headless: false,
-    args: ['--disable-extensions-except=' + ext, '--load-extension=' + ext, '--no-first-run']
-  });
+  function launchProfile(profile, uiLanguage = locale) {
+    const language = uiLanguage === 'en' ? 'en_US' : uiLanguage.replace('-', '_');
+    return chromium.launchPersistentContext(join(tmp, profile), {
+      executablePath: chromium.executablePath(), headless: false, locale: uiLanguage,
+      env: { ...process.env, LANGUAGE: language, LANG: language + '.UTF-8', LC_ALL: language + '.UTF-8' },
+      args: ['--lang=' + uiLanguage, '--disable-extensions-except=' + ext, '--load-extension=' + ext, '--no-first-run']
+    });
+  }
+  const browser = await launchProfile('profile');
   t.after(() => browser.close());
   const worker = browser.serviceWorkers()[0] || await browser.waitForEvent('serviceworker');
   const manager = await browser.newPage();
   await manager.goto(new URL('popup.html', worker.url()).href);
+  assert.equal(await manager.locator('html').getAttribute('lang'), locale);
+  assert.equal(await manager.locator('#save').textContent(), locale === 'en' ? 'Save' : 'Salvar');
+  const translated = (key, value) => manager.evaluate(([key, value]) => chrome.i18n.getMessage(key, value), [key, value ?? []]);
+  await manager.evaluate(() => chrome.storage.local.set({ history: [
+    { time: 1, origin: 'Grupo Agy', action: 'Controle retomado', ok: true }
+  ] }));
+  await manager.waitForFunction(() => document.querySelector('#history')?.textContent.includes(chrome.i18n.getMessage('resumed')));
+  assert.ok((await manager.locator('#history').textContent()).includes('BetterBrowser'));
   const message = (type, data = {}) => manager.evaluate(msg => chrome.runtime.sendMessage(msg), { type, ...data });
   const { token } = await message('token');
   const tokenFile = join(tmp, 'token');
@@ -64,21 +81,23 @@ self.addEventListener('securitypolicyviolation', e => cspViolations.push([e.effe
   assert.match((await invoke('list_browsers')).text, /Nenhum navegador/);
   const endpoint = 'ws://127.0.0.1:' + port + '/browser';
   assert.ok(!(await message('configure', { endpoint, name: 'Brave do teste' })).error);
-  const waitForState = state => manager.waitForFunction(async s => (await chrome.runtime.sendMessage({ type: 'state' })).notice.startsWith(s), state, { timeout: 6000 });
-  await waitForState('Disponível');
+  const waitForAvailable = popup => popup.waitForFunction(
+    () => document.querySelector('#status').textContent === chrome.i18n.getMessage('available'),
+    undefined, { timeout: 6000 });
+  await waitForAvailable(manager);
   const [{ id, name, tokenSalvo }] = JSON.parse((await invoke('list_browsers')).text);
   assert.equal(name, 'Brave do teste');
   assert.equal(tokenSalvo, false);
-  const otherBrowser = await chromium.launchPersistentContext(join(tmp, 'profile2'), {
-    executablePath: chromium.executablePath(), headless: false,
-    args: ['--disable-extensions-except=' + ext, '--load-extension=' + ext, '--no-first-run']
-  });
+  const otherBrowser = await launchProfile('profile2', 'fr-FR');
   t.after(() => otherBrowser.close());
   const otherWorker = otherBrowser.serviceWorkers()[0] || await otherBrowser.waitForEvent('serviceworker');
   const otherManager = await otherBrowser.newPage();
   await otherManager.goto(new URL('popup.html', otherWorker.url()).href);
+  assert.match(await otherManager.evaluate(() => chrome.i18n.getUILanguage()), /^fr\b/);
+  assert.equal(await otherManager.locator('html').getAttribute('lang'), 'en');
+  assert.equal(await otherManager.locator('#save').textContent(), 'Save');
   await otherManager.evaluate(endpoint => chrome.runtime.sendMessage({ type: 'configure', endpoint, name: 'Segundo navegador' }), endpoint);
-  await otherManager.waitForFunction(async () => (await chrome.runtime.sendMessage({ type: 'state' })).notice.startsWith('Disponível'));
+  await waitForAvailable(otherManager);
   const peers = JSON.parse((await invoke('list_browsers')).text);
   assert.equal(peers.length, 2);
   assert.ok(!JSON.stringify(peers).includes(token));
@@ -95,7 +114,7 @@ self.addEventListener('securitypolicyviolation', e => cspViolations.push([e.effe
   t.after(() => resumed.close());
   const restored = await resumed.callTool({ name: 'browser', arguments: { command: { action: 'status' } } });
   assert.ok(!restored.isError);
-  assert.match(restored.content[0].text, /primeira aba/);
+  assert.ok(restored.content[0].text.endsWith(await translated('readyToOpen')));
   const [scope] = await readdir(tokenFile + '.d');
   const stored = join(tokenFile + '.d', scope, id);
   assert.equal((await stat(stored)).mode & 0o777, 0o600);
@@ -104,7 +123,7 @@ self.addEventListener('securitypolicyviolation', e => cspViolations.push([e.effe
   assert.equal((await invoke('browser', { browserId: other.id, command: { action: 'read' } })).ok, false);
   const personal = await browser.newPage();
   await personal.goto(origin + '/pessoal');
-  const notice = 'Agy está controlando esse navegador';
+  const notice = locale === 'en' ? 'BetterBrowser is controlling this browser' : 'BetterBrowser está controlando este navegador';
   const banner = page => page.locator('[data-agy-control-notice]');
   assert.equal(await banner(personal).count(), 0);
   assert.equal(await worker.evaluate(() => chrome.action.getBadgeText({})), '');
@@ -117,7 +136,7 @@ self.addEventListener('securitypolicyviolation', e => cspViolations.push([e.effe
   const [main] = JSON.parse(await act({ action: 'tabs' }));
   const getTab = tabId => worker.evaluate(id => chrome.tabs.get(id), tabId);
   const { groupId } = await getTab(main.tabId);
-  assert.equal(await worker.evaluate(async id => (await chrome.tabGroups.get(id)).title, groupId), 'Agy');
+  assert.equal(await worker.evaluate(async id => (await chrome.tabGroups.get(id)).title, groupId), 'BetterBrowser');
   assert.notEqual((await getTab(personalId)).groupId, groupId);
   const target = await opening;
   await target.waitForURL(origin + '/', { waitUntil: 'load' });
@@ -133,14 +152,14 @@ self.addEventListener('securitypolicyviolation', e => cspViolations.push([e.effe
     } });
     return [frame.result, await chrome.action.getBadgeText({}), await chrome.action.getTitle({})];
   }, personalId);
-  assert.deepEqual(badge, [notice, 'AGY', notice]);
+  assert.deepEqual(badge, [notice, 'BB', notice]);
   const internal = await browser.newPage();
   await internal.goto('chrome://version');
   const internalBadge = await worker.evaluate(async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     return chrome.action.getBadgeText({ tabId: tab.id });
   });
-  assert.equal(internalBadge, 'AGY');
+  assert.equal(internalBadge, 'BB');
   await internal.close();
   const restoredGroup = await resumed.callTool({ name: 'browser', arguments: { browserId: id,
     command: { action: 'open', url: origin + '/segunda-sessao' } } });
@@ -153,8 +172,8 @@ self.addEventListener('securitypolicyviolation', e => cspViolations.push([e.effe
   await worker.evaluate(({ groupId, personalId }) => chrome.tabs.group({ groupId, tabIds: personalId }), { groupId, personalId });
   assert.deepEqual(JSON.parse(await act({ action: 'tabs' })).map(tab => tab.tabId), [main.tabId]);
   for (const tabId of [otherTab.tabId, personalId]) {
-    assert.match(await act({ action: 'select', tabId }), /não pertence/);
-    assert.match(await act({ action: 'close', tabId }), /não pertence/);
+    assert.equal(await act({ action: 'select', tabId }), await translated('notSessionTab'));
+    assert.equal(await act({ action: 'close', tabId }), await translated('notSessionTab'));
   }
   const initial = await act({ action: 'read' });
   const ref = (tag, text) => {
@@ -164,7 +183,7 @@ self.addEventListener('securitypolicyviolation', e => cspViolations.push([e.effe
   };
   const field = ref('input', 'Cliente');
   await target.bringToFront();
-  assert.match(await act({ action: 'fill', fields: [{ ref: field, value: 'teste-privado' }] }), /preenchido/);
+  assert.equal(await act({ action: 'fill', fields: [{ ref: field, value: 'teste-privado' }] }), await translated('fieldsFilled', '1'));
   assert.equal(await target.locator('input').inputValue(), 'teste-privado');
   await worker.evaluate(id => chrome.scripting.executeScript({ target: { tabId: id }, func: () => {
     const host = document.querySelector('[data-agy-pointer]');
@@ -213,7 +232,7 @@ self.addEventListener('securitypolicyviolation', e => cspViolations.push([e.effe
     globalThis.pointerTrace.movement = [];
     document.querySelector('input').style.marginTop = '120vh';
   } }), main.tabId);
-  assert.match(await act({ action: 'fill', fields: [{ ref: field, value: 'campo distante' }] }), /preenchido/);
+  assert.equal(await act({ action: 'fill', fields: [{ ref: field, value: 'campo distante' }] }), await translated('fieldsFilled', '1'));
   assert.equal(await target.locator('input').inputValue(), 'campo distante');
   const reduced = await worker.evaluate(async id => (await chrome.scripting.executeScript({
     target: { tabId: id }, func: () => {
@@ -223,9 +242,9 @@ self.addEventListener('securitypolicyviolation', e => cspViolations.push([e.effe
   }))[0].result, main.tabId);
   assert.deepEqual(reduced, [0, true]);
   await target.emulateMedia({ reducedMotion: 'no-preference' });
-  assert.match(await act({ action: 'navigate', url: 'file:///tmp/private' }), /HTTP ou HTTPS/);
+  assert.equal(await act({ action: 'navigate', url: 'file:///tmp/private' }), await translated('invalidDestination'));
   assert.match(await act({ action: 'read' }), /Salvo/);
-  assert.match(await act({ action: 'click', ref: field }), /expirada/);
+  assert.equal(await act({ action: 'click', ref: field }), await translated('expiredReference'));
   const history = (await message('state')).history;
   assert.ok(history.some(entry => entry.action === 'fill (1)'));
   assert.ok(!JSON.stringify(history).includes('teste-privado'));
@@ -249,7 +268,7 @@ self.addEventListener('securitypolicyviolation', e => cspViolations.push([e.effe
   assert.equal(await target.evaluate(() => sessionStorage.visitas), '1');
   const beforeLink = await act({ action: 'read' });
   const linkRef = beforeLink.split('\n').find(line => line.includes(' a Detalhes')).split(' ')[0];
-  assert.match(await act({ action: 'click', ref: linkRef }), /Clique/);
+  assert.equal(await act({ action: 'click', ref: linkRef }), await translated('clickSent'));
   await manager.waitForFunction(async gid => (await chrome.tabs.query({ groupId: gid })).some(t => t.url?.endsWith('/detalhes')), groupId);
   const afterLink = JSON.parse(await act({ action: 'tabs' }));
   assert.equal(afterLink.length, 2);
@@ -261,7 +280,7 @@ self.addEventListener('securitypolicyviolation', e => cspViolations.push([e.effe
   await act({ action: 'select', tabId: main.tabId });
   const beforeOriginChange = await tip();
   const otherOrigin = origin.replace('127.0.0.1', 'localhost');
-  assert.match(await act({ action: 'navigate', url: otherOrigin + '/login' }), /Navegação/);
+  assert.equal(await act({ action: 'navigate', url: otherOrigin + '/login' }), await translated('tabNavigating', String(main.tabId)));
   await target.waitForURL(otherOrigin + '/login', { waitUntil: 'load' });
   assert.deepEqual(await tip(), beforeOriginChange);
   assert.match(await act({ action: 'read' }), /localhost/);
@@ -272,7 +291,7 @@ self.addEventListener('securitypolicyviolation', e => cspViolations.push([e.effe
   await banner(target).waitFor({ state: 'detached' });
   assert.equal(await pointer.count(), 0);
   assert.equal(await worker.evaluate(() => chrome.action.getBadgeText({})), '');
-  assert.match(await act({ action: 'open', url: origin }), /pausado/);
+  assert.equal(await act({ action: 'open', url: origin }), await translated('controlPaused'));
   await message('resume');
   await banner(personal).waitFor();
   assert.deepEqual(await tip(), beforeOriginChange);
@@ -282,18 +301,19 @@ self.addEventListener('securitypolicyviolation', e => cspViolations.push([e.effe
   await target.reload();
   await banner(target).waitFor();
   assert.equal(await pointer.count(), 0);
-  assert.match(await act({ action: 'read' }), /não pertence/);
-  assert.match(await act({ action: 'open', url: origin }), /aberta/);
+  assert.equal(await act({ action: 'read' }), await translated('notSessionTab'));
+  const opened = await act({ action: 'open', url: origin });
   const [newTab] = JSON.parse(await act({ action: 'tabs' }));
+  assert.equal(opened, await translated('tabOpened', String(newTab.tabId)));
   assert.notEqual((await getTab(newTab.tabId)).groupId, groupId);
   await message('rotate');
   assert.notEqual((await message('token')).token, token);
-  await waitForState('Disponível');
+  await waitForAvailable(manager);
   assert.equal((await invoke('pair_browser', { browserId: id, token })).ok, false);
   assert.match(await act({ action: 'read' }), /Token incorreto/);
   const rotated = (await message('token')).token;
   assert.ok((await invoke('pair_browser', { browserId: id, token: rotated })).ok);
-  assert.match(await act({ action: 'tabs' }), /primeira aba/);
+  assert.equal(await act({ action: 'tabs' }), await translated('readyToOpen'));
   await banner(personal).waitFor({ state: 'detached' });
   await act({ action: 'open', url: origin });
   await banner(personal).waitFor();
@@ -308,10 +328,7 @@ self.addEventListener('securitypolicyviolation', e => cspViolations.push([e.effe
   // Updating an unpacked extension in place preserves chrome.storage.local.
   assert.deepEqual(await worker.evaluate(() => globalThis.cspViolations), []);
   await browser.close();
-  const reopened = await chromium.launchPersistentContext(join(tmp, 'profile'), {
-    executablePath: chromium.executablePath(), headless: false,
-    args: ['--disable-extensions-except=' + ext, '--load-extension=' + ext, '--no-first-run']
-  });
+  const reopened = await launchProfile('profile');
   t.after(() => reopened.close());
   const restartedWorker = reopened.serviceWorkers()[0] || await reopened.waitForEvent('serviceworker');
   const popup = await reopened.newPage();
@@ -323,4 +340,4 @@ self.addEventListener('securitypolicyviolation', e => cspViolations.push([e.effe
   assert.equal(retained.id, id);
   assert.ok(retained.token === rotated);
   assert.deepEqual(await restartedWorker.evaluate(() => globalThis.cspViolations), []);
-});
+}

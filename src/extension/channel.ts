@@ -33,7 +33,7 @@ export class AgentChannel {
         } else if (!this.closed && listed && msg.type === 'command' && msg.signature === expected && !busy && typeof msg.id === 'string') {
           busy = true;
           const result = msg.sessionId ? await execute(sessionCommand.parse(msg)) :
-            { ok: false, text: 'Abra uma nova sessão do agy para carregar as ferramentas do grupo Agy.' };
+            { ok: false, text: chrome.i18n.getMessage('restartAgent') };
           busy = false;
           this.send({ type: 'result', id: msg.id, result });
         } else if (msg.type !== 'alive') this.close();

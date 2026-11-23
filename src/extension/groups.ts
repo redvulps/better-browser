@@ -18,7 +18,7 @@ async function load(): Promise<Groups> {
 function destination(raw: string) {
   const url = new URL(raw);
   if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) {
-    throw new Error('Use um endereço HTTP ou HTTPS sem credenciais na URL.');
+    throw new Error(chrome.i18n.getMessage('invalidDestination'));
   }
   return url;
 }
@@ -51,16 +51,16 @@ async function members(group?: Group): Promise<Tab[]> {
 
 async function open(groups: Groups, key: string, existing: Tab | undefined, url?: URL) {
   const tab = await chrome.tabs.create({ url: 'about:blank', active: true, windowId: existing?.windowId });
-  if (tab.id === undefined) throw new Error('O navegador não retornou o ID da nova aba.');
+  if (tab.id === undefined) throw new Error(chrome.i18n.getMessage('missingTabId'));
   const tabId = tab.id;
   try {
     const id = await chrome.tabs.group({ tabIds: tabId, groupId: existing?.groupId });
-    if (!existing) await chrome.tabGroups.update(id, { title: 'Agy', color: 'blue' });
+    if (!existing) await chrome.tabGroups.update(id, { title: 'BetterBrowser', color: 'blue' });
     if (existing) groups[key].tabs.unshift(tabId);
     else groups[key] = { id, tabs: [tabId] };
     await chrome.storage.session.set({ groups });
     if (url) await chrome.tabs.update(tabId, { url: url.href });
-    return { ok: true, text: 'Aba ' + tabId + ' aberta e selecionada no grupo Agy.' };
+    return { ok: true, text: chrome.i18n.getMessage('tabOpened', String(tabId)) };
   } catch (error) {
     await chrome.tabs.remove(tabId).catch(() => {});
     throw error;
@@ -68,7 +68,7 @@ async function open(groups: Groups, key: string, existing: Tab | undefined, url?
 }
 
 export async function runInGroup({ sessionId, command }: SessionCommand): Promise<Reply> {
-  let origin = 'Grupo Agy';
+  let origin = '';
   let result: Reply;
   try {
     const groups = await load();
@@ -78,8 +78,8 @@ export async function runInGroup({ sessionId, command }: SessionCommand): Promis
     const url = 'url' in command && command.url !== undefined ? destination(command.url) : undefined;
     const target = 'tabId' in command ? tabs.find(tab => tab.id === command.tabId) : current;
     if (command.action === 'tabs' || command.action === 'status') {
-      if (!current) return { ok: true, text: 'Pronto para abrir a primeira aba desta sessão com open ou navigate.' };
-      if (command.action === 'status') return { ok: true, text: `Grupo Agy com ${tabs.length} aba(s). Aba selecionada: ${current.id}.` };
+      if (!current) return { ok: true, text: chrome.i18n.getMessage('readyToOpen') };
+      if (command.action === 'status') return { ok: true, text: chrome.i18n.getMessage('groupStatus', [String(tabs.length), String(current.id)]) };
       const offset = command.offset ?? 0;
       const info = tabs.slice(offset, offset + 20).map(tab => ({ tabId: tab.id, selected: tab.id === current.id,
         title: tab.title?.slice(0, 160), url: tab.url?.slice(0, 1000) }));
@@ -89,22 +89,22 @@ export async function runInGroup({ sessionId, command }: SessionCommand): Promis
     if (command.action === 'open' || (command.action === 'navigate' && !current)) {
       result = await open(groups, sessionId, current, url);
     } else if (!target) {
-      result = { ok: false, text: 'A aba não pertence a esta sessão. Use tabs para listar ou open para abrir uma aba.' };
+      result = { ok: false, text: chrome.i18n.getMessage('notSessionTab') };
     } else if (command.action === 'select') {
       await chrome.tabs.update(target.id, { active: true });
       group.tabs = [target.id, ...tabs.map(tab => tab.id).filter(id => id !== target.id)];
       await chrome.storage.session.set({ groups });
-      result = { ok: true, text: 'Aba ' + target.id + ' selecionada.' };
+      result = { ok: true, text: chrome.i18n.getMessage('tabSelected', String(target.id)) };
     } else if (command.action === 'close') {
       await chrome.tabs.remove(target.id);
-      result = { ok: true, text: 'Aba ' + target.id + ' fechada.' };
+      result = { ok: true, text: chrome.i18n.getMessage('tabClosed', String(target.id)) };
     } else if (command.action === 'navigate') {
       await chrome.tabs.update(target.id, { url: url!.href });
-      result = { ok: true, text: 'Navegação solicitada na aba ' + target.id + '.' };
+      result = { ok: true, text: chrome.i18n.getMessage('tabNavigating', String(target.id)) };
     } else if (target.pendingUrl || (!target.url && target.status === 'loading')) {
-      result = { ok: false, text: 'A aba está carregando. Consulte read novamente em instantes.' };
+      result = { ok: false, text: chrome.i18n.getMessage('tabLoading') };
     } else if (!target.url || !/^https?:\/\//.test(target.url)) {
-      result = { ok: false, text: 'Navegue para uma página HTTP ou HTTPS com navigate.' };
+      result = { ok: false, text: chrome.i18n.getMessage('navigateToPage') };
     } else {
       const injection: chrome.scripting.InjectionTarget = { tabId: target.id };
       if (command.action !== 'read') {
@@ -115,7 +115,7 @@ export async function runInGroup({ sessionId, command }: SessionCommand): Promis
       }
       const [frame] = await chrome.scripting.executeScript({ target: injection, injectImmediately: true,
         func: actOnPage, args: [command, new URL(target.url).origin, sessionId] });
-      result = frame?.result ?? { ok: false, text: 'O documento mudou. Leia a aba novamente.' };
+      result = frame?.result ?? { ok: false, text: chrome.i18n.getMessage('documentChanged') };
     }
   } catch (error) {
     result = { ok: false, text: (error as Error).message };

@@ -34,8 +34,8 @@ async function announce() {
   if (channel) return;
   const { endpoint, browser, token } = await settings();
   const next: AgentChannel = new AgentChannel(endpoint, browser, token, request => enqueue(async () => {
-    if (next !== channel) return { ok: false, text: 'Ponte desconectada.' };
-    if ((await chrome.storage.local.get('paused')).paused) return { ok: false, text: 'Controle pausado. Use Retomar na extensão.' };
+    if (next !== channel) return { ok: false, text: chrome.i18n.getMessage('bridgeDisconnected') };
+    if ((await chrome.storage.local.get('paused')).paused) return { ok: false, text: chrome.i18n.getMessage('controlPaused') };
     return runInGroup(request);
   }), () => {
     if (channel === next) {
@@ -51,7 +51,7 @@ async function announce() {
 }
 async function configure(endpoint: string, name?: string) {
   const url = validEndpoint(endpoint, 'ws');
-  if (url.pathname !== '/browser') throw new Error('Use o caminho /browser na URL da ponte.');
+  if (url.pathname !== '/browser') throw new Error(chrome.i18n.getMessage('bridgePath'));
   const cfg = await settings();
   const browser = identity.parse({ ...cfg.browser, name: name?.trim() || cfg.browser.name });
   if (cfg.endpoint !== url.href || cfg.browser.name !== browser.name) {
@@ -97,11 +97,11 @@ chrome.runtime.onMessage.addListener((msg, sender, respond) => {
   void enqueue(async () => {
     if (pausing) {
       await pausing;
-      await record('Grupo Agy', 'Controle pausado');
+      await record('', 'pause');
     }
     if (msg.type === 'resume') {
       await chrome.storage.local.set({ paused: false });
-      await record('Grupo Agy', 'Controle retomado');
+      await record('', 'resume');
     }
     if (msg.type === 'rotate') {
       await chrome.storage.session.remove('groups');
@@ -113,8 +113,8 @@ chrome.runtime.onMessage.addListener((msg, sender, respond) => {
     const { token, browser, endpoint } = await settings();
     if (msg.type === 'token') return { token };
     const { history = [], paused = false } = await chrome.storage.local.get(['history', 'paused']);
-    const notice = paused ? 'Controle pausado' : listed ? activeNotice() ?? 'Disponível · grupo Agy' : 'Aguardando ponte';
+    const notice = paused ? chrome.i18n.getMessage('paused') : listed ? activeNotice() ?? chrome.i18n.getMessage('available') : chrome.i18n.getMessage('waitingForBridge');
     return { notice, paused, endpoint, browser, history };
-  }).then(respond, () => respond({ error: 'Confira o endereço, o nome do navegador e a aba selecionada.' }));
+  }).then(respond, () => respond({ error: chrome.i18n.getMessage('configurationError') }));
   return true;
 });
