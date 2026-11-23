@@ -2,17 +2,19 @@
 
 O Better Browser conecta o Chrome ou Brave a qualquer agente que consiga iniciar um servidor MCP via `stdio` e chamar suas ferramentas. Cada conversa pode abrir e controlar seu próprio grupo de abas no perfil pareado. A skill é opcional e orienta o agente sobre o pareamento e o uso das abas.
 
-Escolha o guia do seu cliente. [Agy](#usar-com-o-agy) · [Codex CLI](#usar-com-o-codex-cli) · [Claude Code](#usar-com-o-claude-code) · [Cursor](#usar-com-o-cursor)
+## Instalando a skill
 
-## Instalar a skill no Agy
-
-Na máquina onde você usa o Agy, execute o comando abaixo em qualquer pasta. A opção `-g` deixa a skill disponível em todos os projetos do Antigravity CLI.
+Para escolher os agentes interativamente, abra o terminal do sistema na pasta do seu projeto e execute o comando abaixo.
 
 ```sh
-npx skills add redvulps/better-browser --skill better-browser -g -a antigravity-cli
+npx skills add redvulps/better-browser --skill better-browser
 ```
 
-Abra uma nova sessão do Agy e digite `/skills` para conferir se `better-browser` aparece na lista.
+1. Na seleção de agentes, marque os que você usa nessa máquina, como **Antigravity CLI (Agy)**, **Codex**, **Claude Code** ou **Cursor**. Os agentes do grupo **Universal** já estão incluídos. Se o instalador detectar apenas um agente, pode selecioná-lo automaticamente.
+2. Em **Installation scope**, escolha **Project** para usar a skill só no projeto atual ou **Global** para usá-la em todos os seus projetos.
+3. Confirme a instalação. Para conferir se `better-browser` aparece na lista, execute `npx skills ls` para o projeto ou `npx skills ls -g` para a instalação global.
+
+Para conectar o navegador, compile o projeto e siga o guia de configuração do servidor MCP para cada cliente que você usa. [Compilar o projeto](#compilar-o-projeto) · [Agy](#usar-com-o-agy) · [Codex CLI](#usar-com-o-codex-cli) · [Claude Code](#usar-com-o-claude-code) · [Cursor](#usar-com-o-cursor)
 
 ## Compilar o projeto
 
@@ -44,15 +46,11 @@ Na pasta do projeto compilado, registre o servidor MCP. A skill `/better-browser
 agy mcp add better-browser "$(node -p process.execPath)" "$PWD/dist/mcp.js"
 ```
 
+Abra uma nova sessão do Agy e digite `/skills` para conferir se `better-browser` aparece na lista.
+
 Para desenvolver a skill pelo código-fonte, a sequência no clone é `npm ci`, `npm run build` e `./scripts/install-agy.sh`. Esse fluxo já registra o MCP e vincula a skill e a regra global aos arquivos do clone.
 
 ## Usar com o Codex CLI
-
-Para instalar a skill no Codex, execute o comando abaixo em qualquer pasta.
-
-```sh
-npx skills add redvulps/better-browser --skill better-browser -g -a codex
-```
 
 Na pasta do [projeto compilado](#compilar-o-projeto), registre o servidor MCP.
 
@@ -70,12 +68,6 @@ Na pasta do projeto compilado, registre o servidor para sua conta de usuário.
 claude mcp add --scope user --transport stdio better-browser -- "$(node -p process.execPath)" "$PWD/dist/mcp.js"
 ```
 
-Para instalar também a skill no Claude Code, execute o comando abaixo.
-
-```sh
-npx skills add redvulps/better-browser --skill better-browser -g -a claude-code
-```
-
 Abra o Claude Code e use `/mcp` para verificar se `better-browser` aparece como conectado. [Guia de MCP do Claude Code](https://code.claude.com/docs/en/mcp)
 
 ## Usar com o Cursor
@@ -91,12 +83,6 @@ Em `~/.cursor/mcp.json`, adicione `better-browser` à seção `mcpServers`. Subs
     }
   }
 }
-```
-
-Para instalar também a skill no Cursor, execute o comando abaixo.
-
-```sh
-npx skills add redvulps/better-browser --skill better-browser -g -a cursor
 ```
 
 Abra o chat em modo Agent e peça “Liste os navegadores disponíveis pelo Better Browser”. [Guia de MCP do Cursor](https://cursor.com/docs/mcp)
