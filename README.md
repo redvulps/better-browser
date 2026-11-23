@@ -2,6 +2,14 @@
 
 O Better Browser conecta o Chrome ou Brave a qualquer agente que consiga iniciar um servidor MCP via `stdio` e chamar suas ferramentas. Cada conversa pode abrir e controlar seu próprio grupo de abas no perfil pareado. A skill é opcional e orienta o agente sobre o pareamento e o uso das abas.
 
+## Baixar a extensão
+
+O pacote assinado da versão mais recente está disponível para download. [Baixar better-browser.crx](https://github.com/redvulps/better-browser/releases/latest/download/better-browser.crx)
+
+No Chrome para Linux, você pode instalar um CRX distribuído fora da loja. No Windows e no macOS, a instalação comum de extensões empacotadas passa pela Chrome Web Store. Para carregar a extensão em modo de desenvolvedor, siga as instruções do projeto. [Distribuição no Chrome](https://developer.chrome.com/docs/extensions/how-to/distribute/host-on-linux) · [Compilar o projeto](#compilar-o-projeto) · [Conectar o navegador](#conectar-o-navegador)
+
+A cada tag `v<VERSÃO>` correspondente à versão de `extension/manifest.json`, o GitHub Actions compila a extensão, assina o CRX com o segredo `CRX_PRIVATE_KEY` e anexa o arquivo à release. Para gerar um build avulso, selecione **Run workflow** na branch `main` e baixe o artefato **better-browser-crx** na página da execução. [Build extension](https://github.com/redvulps/better-browser/actions/workflows/extension.yml)
+
 ## Instalando a skill
 
 Para escolher os agentes interativamente, abra o terminal do sistema na pasta do seu projeto e execute o comando abaixo.

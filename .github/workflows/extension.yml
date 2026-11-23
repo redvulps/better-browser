@@ -1,0 +1,71 @@
+name: Build extension
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+      - name: Check release tag against the extension manifest
+        if: github.ref_type == 'tag'
+        run: |
+          version=$(node -p "require('./extension/manifest.json').version")
+          if [[ "$GITHUB_REF_NAME" != "v$version" ]]; then
+            echo "::error::Expected tag v$version for this extension manifest."
+            exit 1
+          fi
+      - run: npm ci
+      - run: npm run build
+      - name: Sign the CRX with Chrome
+        env:
+          CRX_PRIVATE_KEY: ${{ secrets.CRX_PRIVATE_KEY }}
+        run: |
+          : "${CRX_PRIVATE_KEY:?Configure the CRX_PRIVATE_KEY Actions secret}"
+          umask 077
+          key=$(mktemp "$RUNNER_TEMP/better-browser-key.XXXXXXXX")
+          trap 'rm -f "$key"' EXIT
+          printf '%s\n' "$CRX_PRIVATE_KEY" > "$key"
+          unset CRX_PRIVATE_KEY
+          google-chrome --headless --pack-extension="$PWD/dist/extension" --pack-extension-key="$key"
+          mv dist/extension.crx dist/better-browser.crx
+          python3 -m zipfile -t dist/better-browser.crx
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: better-browser-crx
+          path: dist/better-browser.crx
+          if-no-files-found: error
+
+  release:
+    if: github.ref_type == 'tag'
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: better-browser-crx
+      - name: Publish the CRX to GitHub Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          if assets=$(gh release view "$GITHUB_REF_NAME" --json assets --jq '.assets[].name'); then
+            if ! grep -Fxq 'better-browser.crx' <<< "$assets"; then
+              gh release upload "$GITHUB_REF_NAME" better-browser.crx
+            fi
+          else
+            gh release create "$GITHUB_REF_NAME" better-browser.crx --verify-tag --generate-notes
+          fi
