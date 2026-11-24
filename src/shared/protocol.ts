@@ -5,7 +5,7 @@ const ref = z.string().check(z.minLength(1), z.maxLength(100));
 const field = z.object({ ref, value: z.string().check(z.maxLength(4000)) });
 const url = z.url().check(z.maxLength(4000));
 const tabId = z.int().check(z.minimum(0));
-export const actions = z.discriminatedUnion('action', [
+const publicActions = [
   z.object({ action: z.literal('status') }),
   z.object({ action: z.literal('open'), url: z.optional(url) }),
   z.object({ action: z.literal('tabs'), offset: z.optional(z.int().check(z.minimum(0))) }),
@@ -14,13 +14,26 @@ export const actions = z.discriminatedUnion('action', [
   z.object({ action: z.literal('read') }),
   z.object({ action: z.literal('click'), ref }),
   z.object({ action: z.literal('fill'), fields: z.array(field).check(z.minLength(1), z.maxLength(30)) }),
-  z.object({ action: z.literal('navigate'), url })
+  z.object({ action: z.literal('navigate'), url }),
+  z.object({ action: z.literal('screenshot'), fullPage: z.optional(z.boolean()) }),
+  z.object({ action: z.literal('record_start') }),
+  z.object({ action: z.literal('record_stop') })
+] as const;
+export const actions = z.discriminatedUnion('action', publicActions);
+const wireActions = z.discriminatedUnion('action', [...publicActions,
+  z.object({ action: z.literal('media_chunk'), id: z.uuid(), offset: z.int().check(z.minimum(0)) }),
+  z.object({ action: z.literal('media_release'), id: z.uuid() })
 ]);
 export type Action = z.infer<typeof actions>;
 export type PageAction = Extract<Action, { action: 'read' | 'click' | 'fill' }>;
-export const sessionCommand = z.object({ sessionId: z.uuid(), command: actions });
+export const sessionCommand = z.object({ sessionId: z.uuid(), command: wireActions });
 export type SessionCommand = z.infer<typeof sessionCommand>;
-export const reply = z.object({ ok: z.boolean(), text: z.string().check(z.maxLength(65000)) });
+// Base64 characters. Each slice fits one existing text reply, including over a remote bridge.
+export const mediaChunkSize = 60000;
+export const maxMediaLength = 32 * 1024 * 1024;
+export const media = z.object({ id: z.uuid(), mimeType: z.enum(['image/png', 'video/webm']),
+  length: z.int().check(z.minimum(4), z.maximum(maxMediaLength)) });
+export const reply = z.object({ ok: z.boolean(), text: z.string().check(z.maxLength(65000)), media: z.optional(media) });
 export type Reply = z.infer<typeof reply>;
 export const tokenPattern = /^[a-f0-9]{64}$/;
 export function randomKey(): string {

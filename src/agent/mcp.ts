@@ -4,15 +4,19 @@ import * as z from 'zod/mini';
 import { actions, browserId, tokenPattern, type Reply } from '../shared/protocol.js';
 import { credential, defaultCredential, Pairings } from './credential.js';
 import { base, call, discover } from './bridge.js';
+import { receiveMedia } from './media.js';
 
-const server = new McpServer({ name: 'better-browser', version: '0.4.0' });
+const server = new McpServer({ name: 'better-browser', version: '0.5.0' });
 const pairs = new Pairings(base.origin);
 let selection = pairs.selected();
-async function tool(run: () => Promise<Reply>) {
-  let result: Reply;
+type ToolReply = Reply & { image?: string };
+async function tool(run: () => Promise<ToolReply>) {
+  let result: ToolReply;
   try { result = await run(); }
   catch (error) { result = { ok: false, text: error instanceof Error ? error.message : 'Falha na ponte.' }; }
-  return { isError: !result.ok, content: [{ type: 'text' as const, text: result.text }] };
+  const content = [{ type: 'text' as const, text: result.text },
+    ...(result.image ? [{ type: 'image' as const, mimeType: 'image/png', data: result.image }] : [])];
+  return { isError: !result.ok, content };
 }
 
 server.registerTool('list_browsers', {
@@ -34,7 +38,7 @@ server.registerTool('pair_browser', {
   return result;
 }));
 server.registerTool('browser', {
-  description: 'Operate this conversation’s BetterBrowser tab group in the paired browser. Start with open or navigate and a URL. Pass the returned sessionId on every subsequent call in this conversation. open adds a tab, tabs lists up to 20 tabs starting at offset (default 0), select and close take a tabId. read, click, fill and navigate use the selected tab. No manual sharing is required.',
+  description: 'Operate this conversation’s BetterBrowser tab group. Start with open or navigate and a URL, then reuse the returned sessionId. open adds a tab, tabs lists up to 20 tabs from offset, select and close take a tabId. read, click, fill and navigate use the selected tab. screenshot returns a PNG of that tab with the virtual pointer hidden. Set fullPage:true to include scrollable page content. record_start begins a silent video following the session’s selected tab, including the virtual pointer. record_stop saves the WebM and returns its path on the MCP host. No manual sharing is required.',
   inputSchema: { browserId: z.optional(browserId), sessionId: z.optional(z.uuid()), command: actions }
 }, ({ browserId: explicit, sessionId, command }) => tool(async () => {
   let id = explicit || selection;
@@ -50,6 +54,13 @@ server.registerTool('browser', {
   }
   const key = sessionId ?? crypto.randomUUID();
   const result = await call('/browsers/' + id + '/session', token, { sessionId: key, command });
+  if (result.ok && result.media) {
+    const expected = command.action === 'screenshot' ? 'image/png' : command.action === 'record_stop' ? 'video/webm' : undefined;
+    if (result.media.mimeType !== expected) throw new Error('Unexpected media type from browser.');
+    const { path, image } = await receiveMedia(result.media, next =>
+      call('/browsers/' + id + '/session', token, { sessionId: key, command: next }));
+    return { ok: true, text: result.text + '\n' + path, image };
+  }
   if (result.ok && !sessionId) result.text = 'sessionId: ' + key + '\n' + result.text;
   return result;
 }));

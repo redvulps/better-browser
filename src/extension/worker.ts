@@ -3,6 +3,7 @@ import { AgentChannel } from './channel.js';
 import { runInGroup, trackChild, forgetTab, rememberPointer, restoreTabPointer } from './groups.js';
 import { activeNotice, onIndicatorReady, updateIndicator } from './indicator.js';
 import { record, settings } from './store.js';
+import { cancelMedia, isRecording, stopOnPause } from './media.js';
 
 let channel: AgentChannel | undefined;
 let listed = false;
@@ -23,6 +24,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
   if ((area === 'session' && changes.groups) || (area === 'local' && changes.paused)) refreshIndicator();
 });
 function disconnect() {
+  cancelMedia();
   clearTimeout(retry);
   const old = channel;
   channel = undefined;
@@ -94,6 +96,7 @@ chrome.runtime.onMessage.addListener((msg, sender, respond) => {
   if (sender.url !== chrome.runtime.getURL('popup.html')) return;
   // A pause must take effect even if the current command is animating a batch of fields.
   const pausing = msg.type === 'pause' ? chrome.storage.local.set({ paused: true }) : undefined;
+  if (pausing) stopOnPause();
   void enqueue(async () => {
     if (pausing) {
       await pausing;
@@ -114,7 +117,7 @@ chrome.runtime.onMessage.addListener((msg, sender, respond) => {
     if (msg.type === 'token') return { token };
     const { history = [], paused = false } = await chrome.storage.local.get(['history', 'paused']);
     const notice = paused ? chrome.i18n.getMessage('paused') : listed ? activeNotice() ?? chrome.i18n.getMessage('available') : chrome.i18n.getMessage('waitingForBridge');
-    return { notice, paused, endpoint, browser, history };
+    return { notice: !paused && isRecording() ? chrome.i18n.getMessage('recording') : notice, paused, endpoint, browser, history };
   }).then(respond, () => respond({ error: chrome.i18n.getMessage('configurationError') }));
   return true;
 });

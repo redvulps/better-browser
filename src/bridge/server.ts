@@ -42,7 +42,9 @@ const answer: RequestListener = async (req, res) => {
     if (target?.[2] === 'session') {
       const { sessionId, command } = sessionCommand.parse(body);
       const result = await directory.request(target[1], token, command, sessionId);
-      return send(200, result.ok, result.text);
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify(result));
+      return;
     }
     const command = actions.parse(body);
     const result = target ? await directory.request(target[1], token, command) : await browser.run(command, token);

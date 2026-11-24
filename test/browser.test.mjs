@@ -11,7 +11,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 
 for (const locale of ['en', 'pt-BR']) {
-  test(`MCP controls localized BetterBrowser groups (${locale})`, { timeout: 50000 }, t => exerciseBrowser(t, locale));
+  test(`MCP controls localized BetterBrowser groups (${locale})`, { timeout: 75000 }, t => exerciseBrowser(t, locale));
 }
 
 async function exerciseBrowser(t, locale) {
@@ -69,7 +69,8 @@ self.addEventListener('securitypolicyviolation', e => cspViolations.push([e.effe
   const port = Number(line.toString().trim().split(' ').pop());
   const base = 'http://127.0.0.1:' + port;
   const client = new Client({ name: 'smoke', version: '1' });
-  const stdio = new StdioClientTransport({ command: process.execPath, args: [resolve('dist/mcp.js')], env: { BETTER_BROWSER_TOKEN_FILE: tokenFile, BETTER_BROWSER_URL: base } });
+  const stdio = new StdioClientTransport({ command: process.execPath, args: [resolve('dist/mcp.js')], env: {
+    BETTER_BROWSER_TOKEN_FILE: tokenFile, BETTER_BROWSER_URL: base, BETTER_BROWSER_ARTIFACT_DIR: join(tmp, 'captures') } });
   await client.connect(stdio);
   t.after(() => client.close());
   const tools = await client.listTools();
@@ -268,13 +269,15 @@ self.addEventListener('securitypolicyviolation', e => cspViolations.push([e.effe
   assert.equal(await target.evaluate(() => sessionStorage.visitas), '1');
   const beforeLink = await act({ action: 'read' });
   const linkRef = beforeLink.split('\n').find(line => line.includes(' a Detalhes')).split(' ')[0];
+  const openedChildPage = target.waitForEvent('popup');
   assert.equal(await act({ action: 'click', ref: linkRef }), await translated('clickSent'));
   await manager.waitForFunction(async gid => (await chrome.tabs.query({ groupId: gid })).some(t => t.url?.endsWith('/detalhes')), groupId);
   const afterLink = JSON.parse(await act({ action: 'tabs' }));
   assert.equal(afterLink.length, 2);
   const child = afterLink.find(tab => tab.tabId !== main.tabId);
   assert.ok(child.selected);
-  const childPage = browser.pages().find(page => page.url() === origin + '/detalhes');
+  const childPage = await openedChildPage;
+  await childPage.waitForURL(origin + '/detalhes');
   await banner(childPage).waitFor();
   assert.equal(await childPage.locator('[data-agy-pointer]').count(), 0);
   await act({ action: 'select', tabId: main.tabId });
@@ -320,8 +323,133 @@ self.addEventListener('securitypolicyviolation', e => cspViolations.push([e.effe
   const [last] = JSON.parse(await act({ action: 'tabs' }));
   await act({ action: 'close', tabId: last.tabId });
   await banner(personal).waitFor({ state: 'detached' });
+  const openedFinalPage = browser.waitForEvent('page');
   await act({ action: 'open', url: origin });
+  const finalPage = await openedFinalPage;
+  await finalPage.waitForURL(origin + '/');
   await banner(personal).waitFor();
+  if (locale === 'en') {
+    const [main] = JSON.parse(await act({ action: 'tabs' }));
+    const target = finalPage;
+    await banner(target).waitFor();
+    const snapshot = await act({ action: 'read' });
+    const button = snapshot.split('\n').find(line => line.includes(' button Salvar')).split(' ')[0];
+    await act({ action: 'click', ref: button });
+    const capture = async (command, session = sessionId) => {
+      const response = await client.callTool({ name: 'browser', arguments: { browserId: id, sessionId: session, command } });
+      assert.ok(!response.isError, response.content[0].text);
+      return response.content;
+    };
+    await target.evaluate(() => {
+      document.body.style.cssText = 'height:2400px;background:rgb(190,20,20)';
+      document.documentElement.style.scrollBehavior = 'auto';
+      const canvas = document.createElement('canvas');
+      canvas.width = 350;
+      canvas.height = 220;
+      canvas.style.cssText = 'position:absolute;top:150px;left:90px';
+      const ctx = canvas.getContext('2d');
+      const image = ctx.createImageData(canvas.width, canvas.height);
+      let seed = 12345;
+      for (let i = 0; i < image.data.length; i += 4) {
+        seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+        image.data.fill(seed >>> 24, i, i + 3);
+        image.data[i + 3] = 255;
+      }
+      ctx.putImageData(image, 0, 0);
+      document.body.append(canvas);
+    });
+    await personal.evaluate(() => { document.body.style.background = '#0e16ea'; });
+    const png = async (fullPage = false) => {
+      const [file, image] = await capture({ action: 'screenshot', fullPage });
+      const path = file.text.split('\n').at(-1);
+      assert.equal(image.mimeType, 'image/png');
+      assert.ok(image.data.length > 60000, 'exercises a multi-chunk transfer');
+      assert.equal(image.data, (await readFile(path)).toString('base64'));
+      return target.evaluate(async encoded => {
+        const bmp = await createImageBitmap(await (await fetch('data:image/png;base64,' + encoded)).blob());
+        const canvas = new OffscreenCanvas(bmp.width, bmp.height);
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(bmp, 0, 0);
+        const pixels = ctx.getImageData(0, 0, bmp.width, bmp.height).data;
+        let arrow = 0;
+        for (let i = 0; i < pixels.length; i += 4) {
+          if (pixels[i] === 17 && pixels[i + 1] === 158 && pixels[i + 2] === 140) arrow++;
+        }
+        return { height: bmp.height, arrow, corner: Array.from(ctx.getImageData(10, bmp.height - 20, 1, 1).data) };
+      }, image.data);
+    };
+    await personal.bringToFront();
+    const viewport = await png();
+    assert.deepEqual(viewport.corner, [190, 20, 20, 255]);
+    assert.equal(viewport.arrow, 0);
+    await target.evaluate(() => scrollTo(0, 425));
+    const entire = await png(true);
+    assert.ok(entire.height >= 2400 && entire.height > viewport.height);
+    assert.equal(entire.arrow, 0);
+    assert.equal(await target.evaluate(() => scrollY), 425);
+    await target.evaluate(() => { document.body.style.height = '50000px'; });
+    assert.equal(await act({ action: 'screenshot', fullPage: true }), await translated('captureTooLarge'));
+    await target.evaluate(() => { document.body.style.height = '2400px'; });
+    await target.evaluate(() => scrollTo(0, 0));
+    await target.bringToFront();
+    await capture({ action: 'record_start' });
+    assert.equal(await worker.evaluate(id => chrome.action.getBadgeText({ tabId: id }), main.tabId), 'REC');
+    assert.equal(await act({ action: 'record_start' }), await translated('recorderBusy'));
+    assert.equal((await invoke('browser', { browserId: id, sessionId: otherSession, command: { action: 'record_stop' } })).ok, false);
+    await personal.bringToFront();
+    await new Promise(resolve => setTimeout(resolve, 600));
+    const openedVideoPage = browser.waitForEvent('page');
+    await act({ action: 'open', url: origin + '/media' });
+    const videoTab = JSON.parse(await act({ action: 'tabs' }))[0].tabId;
+    const videoPage = await openedVideoPage;
+    await videoPage.waitForURL(origin + '/media');
+    await videoPage.evaluate(() => { document.body.style.background = 'rgb(30,185,30)'; });
+    await new Promise(resolve => setTimeout(resolve, 700));
+    await act({ action: 'select', tabId: main.tabId });
+    await new Promise(resolve => setTimeout(resolve, 300));
+    const [video] = await capture({ action: 'record_stop' });
+    assert.equal(await worker.evaluate(id => chrome.action.getBadgeText({ tabId: id }), main.tabId), 'BB');
+    const path = video.text.split('\n').at(-1);
+    assert.ok(path.endsWith('.webm'));
+    const colors = await target.evaluate(async encoded => {
+      const blob = await (await fetch('data:video/webm;base64,' + encoded)).blob();
+      const video = document.createElement('video');
+      video.muted = true;
+      video.src = URL.createObjectURL(blob);
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      const seen = { red: false, green: false, personal: false, pointer: false };
+      const ended = new Promise((resolve, reject) => { video.onended = resolve; video.onerror = reject; });
+      function frame() {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0);
+        const [r, g, b] = ctx.getImageData(25, canvas.height - 30, 1, 1).data;
+        if (r > 150 && g < 60) seen.red = true;
+        if (g > 150 && r < 60) seen.green = true;
+        if (b > 175 && r < 60) seen.personal = true;
+        const pixels = ctx.getImageData(0, 0, canvas.width, 100).data;
+        for (let i = 0; i < pixels.length; i += 4) {
+          if (Math.abs(pixels[i] - 17) + Math.abs(pixels[i+1] - 158) + Math.abs(pixels[i+2] - 140) < 35) seen.pointer = true;
+        }
+        video.requestVideoFrameCallback(frame);
+      }
+      video.requestVideoFrameCallback(frame);
+      await video.play();
+      await ended;
+      URL.revokeObjectURL(video.src);
+      return seen;
+    }, (await readFile(path)).toString('base64'));
+    assert.deepEqual(colors, { red: true, green: true, personal: false, pointer: true });
+    await act({ action: 'close', tabId: videoTab });
+    await capture({ action: 'record_start' });
+    await message('pause');
+    assert.equal(await act({ action: 'screenshot' }), await translated('controlPaused'));
+    await message('resume');
+    const [pausedVideo] = await capture({ action: 'record_stop' });
+    assert.ok((await stat(pausedVideo.text.split('\n').at(-1))).size > 0);
+    await target.evaluate(() => document.body.removeAttribute('style'));
+  }
   bridge.kill();
   await banner(personal).waitFor({ state: 'detached' });
   assert.equal(personal.url(), origin + '/pessoal');

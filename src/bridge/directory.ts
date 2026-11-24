@@ -1,11 +1,12 @@
 import type { WebSocket } from 'ws';
-import { identity, proof, randomKey, tokenPattern, type Action, type Identity, type Reply } from '../shared/protocol.js';
+import { identity, proof, randomKey, tokenPattern, type SessionCommand, type Identity, type Reply } from '../shared/protocol.js';
 import { equalSecret } from './session.js';
 import { Commands } from './commands.js';
 
 interface Peer {
   identity: Identity;
   groups: boolean;
+  media: boolean;
   socket: WebSocket;
   clientNonce: string;
   serverNonce: string;
@@ -17,10 +18,10 @@ export class Directory {
 
   list() { return [...this.peers.values()].map(peer => peer.identity); }
 
-  attach(socket: WebSocket, hello: { browser: unknown; nonce: string; groups?: boolean }) {
+  attach(socket: WebSocket, hello: { browser: unknown; nonce: string; groups?: boolean; media?: boolean }) {
     const browser = identity.parse(hello.browser);
     if (!tokenPattern.test(hello.nonce)) return socket.close(1008);
-    const peer: Peer = { identity: browser, groups: hello.groups === true, socket, clientNonce: hello.nonce, serverNonce: randomKey(),
+    const peer: Peer = { identity: browser, groups: hello.groups === true, media: hello.media === true, socket, clientNonce: hello.nonce, serverNonce: randomKey(),
       browserProof: '', commands: new Commands(socket) };
     const deadline = setTimeout(() => socket.terminate(), 5000);
     socket.on('close', () => {
@@ -47,7 +48,7 @@ export class Directory {
     socket.send(JSON.stringify({ type: 'discover', nonce: peer.serverNonce }));
   }
 
-  async request(id: string, token: string, command?: Action, sessionId?: string): Promise<Reply> {
+  async request(id: string, token: string, command?: SessionCommand['command'], sessionId?: string): Promise<Reply> {
     const peer = this.peers.get(id);
     if (!peer) return { ok: false, text: 'O navegador saiu da lista. Liste novamente.' };
     const expected = await proof(token, 'browser', peer.clientNonce, peer.serverNonce);
@@ -57,6 +58,9 @@ export class Directory {
       return { ok: false, text: 'Navegador desconectado.' };
     }
     if (sessionId && !peer.groups) return { ok: false, text: 'Recarregue a extensão Better Browser 0.3 ou superior para habilitar o grupo BetterBrowser.' };
+    if (command && ['screenshot', 'record_start', 'record_stop', 'media_chunk', 'media_release'].includes(command.action) && (!sessionId || !peer.media)) {
+      return { ok: false, text: 'Atualize a extensão Better Browser para a versão 0.5 ou superior e use o sessionId da conversa.' };
+    }
     if (command) return peer.commands.run(command, signature, sessionId);
     return { ok: true, text: 'Token verificado para o navegador ' + id + '.' };
   }

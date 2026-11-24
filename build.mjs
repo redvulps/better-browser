@@ -4,7 +4,7 @@ import { cp, mkdir } from 'node:fs/promises';
 await mkdir('dist/extension', { recursive: true });
 await cp('extension', 'dist/extension', { recursive: true });
 await build({
-  entryPoints: ['src/extension/worker.ts', 'src/extension/popup.ts'],
+  entryPoints: ['src/extension/worker.ts', 'src/extension/popup.ts', 'src/extension/recorder.ts'],
   outdir: 'dist/extension', platform: 'browser', target: 'chrome116', bundle: true, format: 'esm'
 });
 await build({

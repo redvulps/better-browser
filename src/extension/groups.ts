@@ -2,6 +2,7 @@ import type { Reply, SessionCommand } from '../shared/protocol.js';
 import { actOnPage } from './page.js';
 import { installPointer, type PointerPosition, type PointerWorld } from './pointer.js';
 import { record } from './store.js';
+import { screenshot, startRecording, stopRecording, transfer } from './media.js';
 
 interface Group {
   id: number;
@@ -49,6 +50,16 @@ async function members(group?: Group): Promise<Tab[]> {
   return group.tabs.map(id => byId.get(id)).filter((tab): tab is Tab => tab?.id !== undefined);
 }
 
+async function captureTarget(sessionId: string) {
+  if ((await chrome.storage.local.get('paused')).paused) return;
+  const [tab] = await members((await load())[sessionId]);
+  if (!tab || tab.pendingUrl || !tab.url?.match(/^https?:\/\//)) return;
+  const frame = await chrome.webNavigation.getFrame({ tabId: tab.id, frameId: 0 });
+  if (frame?.documentId && frame.url === tab.url) {
+    return { tabId: tab.id, groupId: tab.groupId, documentId: frame.documentId };
+  }
+}
+
 async function open(groups: Groups, key: string, existing: Tab | undefined, url?: URL) {
   const tab = await chrome.tabs.create({ url: 'about:blank', active: true, windowId: existing?.windowId });
   if (tab.id === undefined) throw new Error(chrome.i18n.getMessage('missingTabId'));
@@ -68,6 +79,7 @@ async function open(groups: Groups, key: string, existing: Tab | undefined, url?
 }
 
 export async function runInGroup({ sessionId, command }: SessionCommand): Promise<Reply> {
+  if (command.action === 'media_chunk' || command.action === 'media_release') return transfer(sessionId, command);
   let origin = '';
   let result: Reply;
   try {
@@ -86,7 +98,9 @@ export async function runInGroup({ sessionId, command }: SessionCommand): Promis
       return { ok: true, text: JSON.stringify(info) };
     }
     origin = url?.origin || (target?.url && new URL(target.url).origin) || origin;
-    if (command.action === 'open' || (command.action === 'navigate' && !current)) {
+    if (command.action === 'record_stop') {
+      result = await stopRecording(sessionId);
+    } else if (command.action === 'open' || (command.action === 'navigate' && !current)) {
       result = await open(groups, sessionId, current, url);
     } else if (!target) {
       result = { ok: false, text: chrome.i18n.getMessage('notSessionTab') };
@@ -105,6 +119,10 @@ export async function runInGroup({ sessionId, command }: SessionCommand): Promis
       result = { ok: false, text: chrome.i18n.getMessage('tabLoading') };
     } else if (!target.url || !/^https?:\/\//.test(target.url)) {
       result = { ok: false, text: chrome.i18n.getMessage('navigateToPage') };
+    } else if (command.action === 'screenshot') {
+      result = await screenshot(sessionId, () => captureTarget(sessionId), command.fullPage ?? false);
+    } else if (command.action === 'record_start') {
+      result = await startRecording(sessionId, () => captureTarget(sessionId));
     } else {
       const injection: chrome.scripting.InjectionTarget = { tabId: target.id };
       if (command.action !== 'read') {
