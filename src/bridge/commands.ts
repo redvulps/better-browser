@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { WebSocket } from 'ws';
-import { reply, type Action, type Reply } from '../shared/protocol.js';
+import { reply, type SessionCommand, type Reply } from '../shared/protocol.js';
 
 // Each browser has a single in-flight action. Disconnects and timeouts never retry it.
 export class Commands {
@@ -14,7 +14,7 @@ export class Commands {
   disconnect() {
     this.pending?.finish({ ok: false, text: 'A aba foi desconectada. Confira o resultado antes de repetir.' });
   }
-  run(command: Action, signature?: string, sessionId?: string): Promise<Reply> {
+  run(command: SessionCommand['command'], signature?: string, sessionId?: string): Promise<Reply> {
     if (this.pending) return Promise.resolve({ ok: false, text: 'A aba está executando outra ação.' });
     const id = randomUUID();
     return new Promise(resolve => {

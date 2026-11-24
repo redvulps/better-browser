@@ -14,6 +14,7 @@ token.setAttribute('aria-label', getMessage('tokenLabel'));
 
 // Pause and resume entries from older versions contain their Portuguese labels.
 const historyActions = new Map(Object.entries({
+  screenshot: 'actionScreenshot', record_start: 'actionRecordStart', record_stop: 'actionRecordStop',
   open: 'actionOpen', navigate: 'actionNavigate', select: 'actionSelect', close: 'actionClose',
   read: 'actionRead', click: 'actionClick', pause: 'paused', resume: 'resumed',
   'Controle pausado': 'paused', 'Controle retomado': 'resumed'

@@ -4,6 +4,7 @@ export type PointerWorld = typeof globalThis & {
   agyPointer?: {
     pointAt(element: HTMLElement, duration: number): Promise<PointerPosition>;
     restore(point: PointerPosition): void;
+    forScreenshot(hidden: boolean): void;
     hide(): void;
   };
 };
@@ -87,7 +88,10 @@ export function installPointer(saved?: PointerPosition) {
     if (!previous) show(point);
   }
   addEventListener('pagehide', hide);
-  world.agyPointer = { hide, restore, async pointAt(element, duration) {
+  world.agyPointer = { hide, restore, forScreenshot(hidden) {
+    position.style.visibility = hidden ? 'hidden' : '';
+    void position.offsetWidth;
+  }, async pointAt(element, duration) {
     // Do not wait for a paint or a throttled animation in a background tab.
     const moving = !document.hidden && !matchMedia('(prefers-reduced-motion: reduce)').matches;
     let rect = element.getBoundingClientRect();

@@ -12,7 +12,7 @@ export class AgentChannel {
     let expected = '';
     let listed = false;
     let busy = false;
-    socket.onopen = () => this.send({ type: 'hello', browser, nonce: client, groups: true });
+    socket.onopen = () => this.send({ type: 'hello', browser, nonce: client, groups: true, media: true });
     socket.onclose = () => {
       this.closed = true;
       clearTimeout(timeout);

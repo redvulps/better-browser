@@ -151,6 +151,23 @@ In controlled tabs, a virtual pointer moves to each target before the agent clic
 
 The shared protocol lives in `src/shared`, the MCP server in `src/agent`, the authenticated bridge session in `src/bridge`, and the browser interaction code in `src/extension`.
 
+## Screenshots and video
+
+Ask your agent to “take a screenshot of this tab”, “capture the full page”, or “record this workflow and send me the video”. The agent uses the same `browser` tool and `sessionId` as the rest of the conversation.
+
+| Command | Result |
+| --- | --- |
+| `{"action":"screenshot"}` | Returns the visible area as a PNG image and its file path. |
+| `{"action":"screenshot","fullPage":true}` | Captures the entire rendered document, including content below the viewport, at the current scroll position without scrolling the tab. Pages above 32 megapixels or 16,384 pixels on either side exceed the full-page limit. |
+| `{"action":"record_start"}` | Starts a silent WebM of the selected session tab. The video follows the agent when it selects another managed tab. |
+| `{"action":"record_stop"}` | Finishes the video and returns its file path. |
+
+Screenshots hide the virtual pointer and click halo. The video includes them. The extension records one session at a time, marking its tab with a **REC** badge. Pause ends the recording. After resuming, ask the agent to collect it with `record_stop`. Recording also ends at five minutes or about 16 MiB. Disconnecting the bridge or rotating the token discards uncollected media.
+
+Files are saved under `~/Downloads/BetterBrowser` on the machine running the MCP server. Set `BETTER_BROWSER_ARTIFACT_DIR` in the MCP server environment to choose another directory.
+
+Version 0.5 adds the Chrome debugger permission to capture a specific session tab and the offscreen permission to encode video. When updating an unpacked installation, rebuild, reload the extension, restart the bridge, and start a new agent session. Once the extension permissions are granted, the agent can take screenshots and start and stop recordings directly. [Chrome debugger API](https://developer.chrome.com/docs/extensions/reference/api/debugger)
+
 ## Tests
 
 The integration tests use the official MCP client, a local bridge, and temporary Chromium profiles with the extension installed. On Linux, install Xvfb and run the following commands from the repository directory.
